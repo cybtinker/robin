@@ -1,0 +1,8 @@
+#pragma once
+namespace std {
+template<class T> void sort(T* a, T* b){ // heapsort
+  long n=b-a; auto sift=[&](long i,long m){for(;;){long c=2*i+1;if(c>=m)return;if(c+1<m&&a[c]<a[c+1])c++;if(!(a[i]<a[c]))return;auto t=a[i];a[i]=a[c];a[c]=t;i=c;}};
+  for(long i=n/2-1;i>=0;i--)sift(i,n);
+  for(long e=n-1;e>0;e--){auto t=a[0];a[0]=a[e];a[e]=t;sift(0,e);}
+}
+}
