@@ -96,7 +96,16 @@ const Research = (() => {
     }
     return { blob: await zip(files), rows: rows.length };
   }
+  async function review() { // everything that would be sent, for the confirm screen
+    const rows = (await tx(['rows'], 'readonly', t => t.objectStore('rows').getAll())).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const d = await db();
+    const keys = await new Promise((res, rej) => { const r = d.transaction('audio').objectStore('audio').getAllKeys(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    let bytes = 0;
+    for (const k of keys) { const b = await getAudio(k); bytes += b ? b.size : 0; }
+    return { rows, files: keys.length, bytes, csv: toCsv(rows) };
+  }
+  const getAudio = async (k) => { const d = await db(); return new Promise((res, rej) => { const r = d.transaction('audio').objectStore('audio').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); };
   const clear = () => tx(['rows', 'audio'], 'readwrite', t => { t.objectStore('rows').clear(); t.objectStore('audio').clear(); });
   return { device, get optedIn() { return optedIn; }, setOptIn(v) { optedIn = !!v; store.set('yv-research', optedIn ? '1' : '0'); },
-    newTake, logTry, count, exportZip, clear, _toCsv: toCsv };
+    newTake, logTry, count, exportZip, clear, review, getAudio, _toCsv: toCsv };
 })();

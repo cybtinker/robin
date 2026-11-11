@@ -159,6 +159,41 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 .rs-list .yes::before { content: "✓"; color: var(--now); }
 .rs-list .no::before { content: "✕"; color: var(--rec); }
 
+/* simplified layout + info pop-ups */
+.h2row { display: flex; align-items: center; gap: 8px; }
+.h2row .check { flex: 1; }
+.lab { display: inline-flex; align-items: center; gap: 6px; }
+.info { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; color: var(--muted);
+  font: italic 700 12px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; padding: 0; cursor: pointer; vertical-align: middle; }
+.info[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.pop { position: absolute; z-index: 20; max-width: min(320px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; font-size: .86rem; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.under { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; }
+.under .padage { margin: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: .84rem; color: var(--muted); }
+.note { margin: -4px 0 0; font-size: .85rem; color: var(--accent); font-weight: 600; min-height: 1.2em; }
+.more { border-top: 1px solid var(--line); padding-top: 6px; }
+.more > summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 6px 0; }
+.more-body { display: grid; gap: 14px; padding-top: 8px; }
+.more-body .research { border-top: 0; padding-top: 0; }
+.speed h3 { font: 650 .78rem var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+.cue output { white-space: nowrap; }
+
+/* review-before-send dialog */
+dialog#review { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--ink); padding: 0; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 48px); }
+dialog#review::backdrop { background: rgba(0,0,0,.45); }
+.rv { display: grid; gap: 10px; padding: 16px; }
+.rv h2 { font: 700 1.15rem var(--display); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.rv-sum { font-size: .88rem; }
+.rv-table { max-height: 40vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.rv-table table { font-size: .82rem; }
+.rv-table th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 650; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.rv-table td { padding: 6px 8px; font-family: var(--body); text-align: left; }
+.rv-table td:last-child { text-align: right; }
+.rv-play { white-space: nowrap; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 3px 8px; cursor: pointer; font-size: .8rem; }
+.rv pre { max-height: 30vh; overflow: auto; font: .7rem/1.4 var(--mono); background: var(--bg); padding: 8px; border-radius: 8px; white-space: pre; }
+.rv-actions { justify-content: flex-end; }
+
 /* language picker */
 .lang { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px 4px 10px; }
 .lang-ico { font: 700 .78rem var(--body); color: var(--accent); }
@@ -216,23 +251,22 @@ footer a { color: inherit; }
       <label class="lang" for="langSel"><span class="lang-ico" aria-hidden="true">文A</span><select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
       <label class="lang" for="themeSel"><svg class="lang-ico" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 1a6 6 0 0 1 0 12z" fill="currentColor"/></svg><select id="themeSel" data-i18n-aria="themeLabel" aria-label="Theme"></select></label>
     </div>
-    <span class="tag" id="offlineTag" data-i18n="tag">On this phone · no upload</span>
   </header>
 
   <section aria-labelledby="takeH">
-    <h2 id="takeH" data-i18n="takeH">1 · Sing a few lines</h2>
+    <div class="h2row"><h2 id="takeH" data-i18n="takeH">1 · Sing a few lines</h2><button class="info" type="button" data-info="info_rec" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></div>
     <div class="rec-row">
       <button id="recBtn" data-i18n-aria="recStart" aria-label="Start recording"><span class="dot"></span></button>
       <div class="rec-meta">
         <div id="timer">0:00 <small data-i18n="timerMax">/ 1:30 max</small></div>
         <div class="meter" aria-hidden="true"><i id="level"></i></div>
-        <p class="hint" id="recHint" data-i18n="recHint">A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
+        <p class="hint" id="recHint" data-i18n="recHint" hidden>A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
       </div>
     </div>
     <div class="row">
       <label class="filebtn" for="fileIn" data-i18n="openFile">Or open a recording…</label>
       <input type="file" id="fileIn" accept="audio/*,.m4a,.wav,.mp3,.aac">
-      <label class="check"><input type="checkbox" id="nsBox"> <span data-i18n="noise">Phone noise reduction</span></label>
+      <button class="linkbtn" id="sampleBtn" data-i18n="sample">Try a sample voice</button>
     </div>
     <div class="progress" id="prog" hidden>
       <p class="hint" id="progText">Reading your voice…</p>
@@ -248,24 +282,23 @@ footer a { color: inherit; }
       <button id="dirOld" aria-pressed="false" data-i18n="older">Older</button>
     </div>
     <div>
-      <div class="slider-head"><label for="pad" data-i18n="padLabel">Pitch × formant</label><output id="padOut">+0.0 st · +5%</output></div>
-      <p class="hint" id="ageGuess" hidden></p>
-      <p class="padage" id="padAge" aria-live="polite"></p>
+      <div class="slider-head"><span class="lab"><label for="pad" data-i18n="padLabel">Pitch × formant</label><button class="info" type="button" data-info="info_pad" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></span><output id="padOut">+0.0 st · +5%</output></div>
       <div class="pad" id="pad" role="slider" tabindex="0" data-i18n-aria="padAria" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
         <svg id="padGrid" aria-hidden="true"></svg>
         <span class="ax ax-y" data-i18n="padY">Pitch ↑</span>
         <span class="ax ax-x" data-i18n="padX">Formant →</span>
         <i class="dot" id="padDot"></i>
       </div>
-      <div class="scale"><span id="padHint" data-i18n="padHint">Drag the dot. Lines: rough age (thick green = now). Grey corners: unlikely mixes.</span><button class="linkbtn" id="padReset" data-i18n="reset">Reset</button></div>
+      <div class="under"><p class="padage" id="padAge" aria-live="polite"></p><button class="linkbtn" id="padReset" data-i18n="reset">Reset</button></div>
+      <p class="chip" id="ageGuessRow" hidden><span id="ageGuess"></span><button class="info" type="button" data-info="info_age" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></p>
     </div>
     <div>
-      <div class="slider-head"><label for="strength" data-i18n="texture">Texture strength</label><output id="strengthOut">0.60</output></div>
+      <div class="slider-head"><span class="lab"><label for="strength" data-i18n="texture">Texture strength</label><button class="info" type="button" data-info="info_texture" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></span><output id="strengthOut">0.60</output></div>
       <input type="range" id="strength" min="0" max="1.5" step="0.05" value="0.6">
-      <div class="scale"><span data-i18n="texNone">none</span><span data-i18n="texMid">vibrato, breath, brightness</span><span data-i18n="texStrong">strong</span></div>
+      <p class="note" id="texNote" aria-live="polite"></p>
     </div>
     <details>
-      <summary data-i18n="cuesSummary">Fine-tune each cue</summary>
+      <summary><span data-i18n="cuesSummary">Fine-tune each cue</span> <button class="info" type="button" data-info="info_cues" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></summary>
       <div class="cues" id="cues"></div>
     </details>
   </section>
@@ -282,10 +315,16 @@ footer a { color: inherit; }
     </div>
     <div class="row">
       <button class="btn primary" id="shareBtn" disabled data-i18n="share">Save or share</button>
-      <button class="btn" id="sampleBtn" data-i18n="sample">Try a sample voice</button>
     </div>
+  </section>
+
+
+  <details class="more" id="more">
+    <summary data-i18n="more">More</summary>
+    <div class="more-body">
+      <label class="check"><input type="checkbox" id="nsBox"> <span data-i18n="noise">Phone noise reduction</span></label>
     <div class="research" id="research">
-      <label class="check"><input type="checkbox" id="rsBox"> <span data-i18n="rsShare">Keep a research log of my tries</span></label>
+      <div class="h2row"><label class="check"><input type="checkbox" id="rsBox"> <span data-i18n="rsShare">Keep a research log of my tries</span></label><button class="info" type="button" data-info="info_research" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></div>
       <ul class="rs-list">
         <li class="yes" data-i18n="rsYes"></li>
         <li class="no" data-i18n="rsNo"></li>
@@ -294,10 +333,8 @@ footer a { color: inherit; }
       <p class="hint"><span id="rsCount"></span> · <span id="rsId"></span></p>
       <p class="hint" id="rsState" aria-live="polite"></p>
     </div>
-  </section>
-
-  <section aria-labelledby="speedH">
-    <h2 id="speedH" data-i18n="speedH">Speed on this device</h2>
+  <div class="speed">
+    <h3 id="speedH" data-i18n="speedH">Speed on this device</h3>
     <table>
       <tbody>
         <tr><td data-i18n="sLen">Length of take</td><td id="sLen">–</td></tr>
@@ -307,14 +344,26 @@ footer a { color: inherit; }
       </tbody>
     </table>
     <div class="row"><button class="btn" id="copyBtn" data-i18n="copy">Copy speed report</button><span class="hint" id="copyNote"></span></div>
-  </section>
-
+  </div>
   <footer>
     <p id="foot1" data-i18n="foot1">Proof of concept. Everything runs in this browser; your recordings never leave the phone. After the first visit it works in airplane mode.</p>
     <p data-i18n="foot2">Built on the WORLD vocoder © M. Morise (modified BSD licence). Sample voice: MTG sms-tools-materials, CC BY 4.0.</p>
     <p id="ver"></p>
   </footer>
+    </div>
+  </details>
 </main>
+<dialog id="review" aria-labelledby="rvTitle">
+  <form method="dialog" class="rv">
+    <h2 id="rvTitle" data-i18n="rvTitle">Check before sending</h2>
+    <p class="hint" data-i18n="rvIntro"></p>
+    <p class="rv-sum"><span id="rvFiles"></span><br><span id="rvId"></span></p>
+    <div class="rv-table"><table><thead><tr><th data-i18n="rvTime"></th><th data-i18n="rvSettings"></th><th data-i18n="rvAge"></th><th></th></tr></thead><tbody id="rvRows"></tbody></table></div>
+    <details><summary data-i18n="rvShowCsv"></summary><pre id="rvCsv"></pre></details>
+    <audio id="rvAudio" hidden></audio>
+    <div class="row rv-actions"><button class="btn" value="cancel" data-i18n="rvCancel">Cancel</button><button class="btn primary" value="ok" id="rvOk" data-i18n="rvOk">Looks fine, send it</button></div>
+  </form>
+</dialog>
 <script src="i18n.js"></script>
 <script src="research.js"></script>
 <script src="app.js"></script>

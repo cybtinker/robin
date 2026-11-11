@@ -38,6 +38,12 @@ not depend on the strength slider. In voicecore.transform they are the cues `pit
 - Theme picker: Automatic, Bright, Dark, Spring, Summer, Fall, Winter, Thanksgiving, Christmas (tokens + a small ornament strip per theme). Remembered on the device.
 - Research log (research.js), opt-in, off by default, no accounts or servers: each take and each try is added to a CSV kept on the phone (IndexedDB) with a random device ID, plus 24 kHz WAVs. "Send research log" shares one .zip (log.csv + audio/) through the phone's share sheet. Not kept: name, email, IP, location, file names. log.csv columns: created_at, device_id, take_id, try_id, original_age_guess, duration_s, f0_median, source, direction, pitch_st, formant_pct, texture, est_delta_years, est_age, lang, app_version, original_audio, try_audio, cues.
 
+## Simpler screen (poc-6, 2026-11-11)
+- Main screen is just Sing → Age → Listen. Noise reduction, research log, speed table and credits sit under "More".
+- Small (i) buttons pop up a one-paragraph explanation (recording, pad, age guess, texture, cues, research).
+- Live notes while sliding: the pad shows years younger and the age you'd sound; texture shows the years it adds; each cue shows its own share in years (vibrato 25 %, the other five 15 % each of the texture effect).
+- "Send research log" first opens a review dialog listing every row and audio file (playable) and the raw log.csv; nothing is shared until "Looks fine, send it".
+
 ## Licences
 WORLD: modified BSD (keep WORLD-LICENSE.txt with the app). All other code is project code. No GPL.
 

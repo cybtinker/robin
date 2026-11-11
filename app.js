@@ -1,6 +1,6 @@
 /* Fledgling PoC: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-5';
+const VERSION = 'poc-6';
 const MAX_S = 90;
 const $ = (id) => document.getElementById(id);
 
@@ -32,7 +32,7 @@ CUES.forEach((k) => {
   d.innerHTML = `<span data-i18n="cue_${k}">${t('cue_' + k)}</span><output id="cue_${k}_o">1.0×</output><input type="range" id="cue_${k}" min="0" max="2" step="0.1" value="1">`;
   $('cues').appendChild(d);
   const inp = d.querySelector('input');
-  inp.addEventListener('input', () => { state.cues[k] = +inp.value; $(`cue_${k}_o`).textContent = (+inp.value).toFixed(1) + '×'; });
+  inp.addEventListener('input', () => { state.cues[k] = +inp.value; showNotes(); });
   inp.addEventListener('change', render);
 });
 
@@ -133,12 +133,12 @@ async function render() {
 }
 const sgn = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
 const padText = () => `${sgn(state.pitch, 1)} ${t('st')} · ${sgn(state.formant, 0)}%`;
-const labelFor = () => `${t(state.direction)} · ${padText()} · ${t('textureShort')} ${state.strength.toFixed(2)}`;
+const labelFor = () => { const d = ageDelta(state.formant, state.pitch); return `${t(state.direction)} · ${state.age ? t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : yrs(d)}`; };
 
 // ------------------------------------------------------------ controls
 function setDirection(d) {
   state.direction = d;
-  setPad(0, PAD_DEFAULT[d]); drawPadGrid();
+  setPad(0, PAD_DEFAULT[d]); drawPadGrid(); showNotes();
   $('dirYoung').setAttribute('aria-pressed', d === 'younger');
   $('dirOld').setAttribute('aria-pressed', d === 'older');
   document.documentElement.classList.toggle('older', d === 'older');
@@ -153,15 +153,29 @@ const PAD_DEFAULT = { younger: 5, older: -4 }; // formant % that matches strengt
 // Formant ≈ 1.4 yr per %, pitch ≈ 5 yr/st (male) or 7 yr/st (female) up to a knee, texture ≈ 11 yr at 1.0.
 const AGE_MODEL = { male: { kP: 5, knee: 1.5, kDown: 4 }, female: { kP: 7, knee: 2, kDown: 5 } };
 const K_FORMANT = 1.4, TEX_YOUNG = 11, TEX_OLD = 5;
+// share of the texture effect carried by each cue (sums to 1 at the default 1x)
+const CUE_W = { vibrato: 0.25, jitter: 0.15, shimmer: 0.15, breath: 0.15, tilt: 0.15, clarity: 0.15 };
+function texYears(only) { // years from texture (negative = younger); `only` = one cue's share
+  const keys = only ? [only] : Object.keys(CUE_W);
+  const w = keys.reduce((a, k) => a + CUE_W[k] * (state.cues[k] ?? 1), 0);
+  return (state.direction === 'younger' ? -TEX_YOUNG : TEX_OLD) * state.strength * w;
+}
+const yrs = (d) => `${d < 0 ? '−' : '+'}${Math.abs(d) < 0.5 ? 0 : Math.round(Math.abs(d))}${['ko', 'ja', 'zh'].includes(LANG) ? '' : ' '}${t('yrUnit')}`;
+function showNotes() {
+  const d = texYears();
+  $('texNote').textContent = t('texNote', { x: Math.abs(d) < 0.5 ? t('sameAge') : t(d < 0 ? 'yrsYounger' : 'yrsOlder', { n: Math.round(Math.abs(d)) }) });
+  CUES.forEach(k => { const o = $(`cue_${k}_o`); if (o) o.textContent = `${(state.cues[k] ?? 1).toFixed(1)}× · ${yrs(texYears(k))}`; });
+  if ($('padAge')) $('padAge').textContent = ageText(ageDelta(state.formant, state.pitch)) + (inBand(state.formant, state.pitch) ? '' : ' · ' + t('unlikely'));
+}
 function pitchYears(p, m) { return p >= 0 ? m.kP * Math.min(p, m.knee) + 0.25 * m.kP * Math.max(0, p - m.knee) : m.kDown * p; }
 function ageDelta(f, p) {
   const m = AGE_MODEL[state.f0med > 280 ? 'female' : 'male'];
-  const tex = state.direction === 'younger' ? -TEX_YOUNG * state.strength : TEX_OLD * state.strength;
+  const tex = texYears();
   return -(K_FORMANT * f + pitchYears(p, m)) + tex;
 }
 const ageText = (d) => (Math.abs(d) < 1 ? t('sameAge') : t(d < 0 ? 'yrsYounger' : 'yrsOlder', { n: Math.round(Math.abs(d)) }))
   + (state.age ? ' · ' + t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : '');
-function showAgeGuess() { $('ageGuess').hidden = !state.age; if (state.age) $('ageGuess').textContent = t('ageGuess', { a: state.age }); }
+function showAgeGuess() { $('ageGuessRow').hidden = !state.age; if (state.age) $('ageGuess').textContent = t('ageChip', { a: state.age }); }
 const LEVELS = [-40, -30, -20, -10, 0, 10, 20];
 // Likely band: in real voices pitch and formants shift together with age (shorter vocal tract, smaller folds).
 // Outside it (high pitch with low formants, or low pitch with high formants) tends to sound unnatural.
@@ -193,7 +207,7 @@ function drawPadGrid() {
   }
   // age contours: ageDelta is monotone in formant, so solve for formant at each pitch
   const m = AGE_MODEL[state.f0med > 280 ? 'female' : 'male'];
-  const tex = state.direction === 'younger' ? -TEX_YOUNG * state.strength : TEX_OLD * state.strength;
+  const tex = texYears();
   LEVELS.forEach((L, li) => {
     const pts = [];
     for (let i = 0; i <= 60; i++) {
@@ -248,7 +262,7 @@ setPad(0, PAD_DEFAULT.younger);
 
 $('dirYoung').onclick = () => setDirection('younger');
 $('dirOld').onclick = () => setDirection('older');
-$('strength').addEventListener('input', (e) => { state.strength = +e.target.value; $('strengthOut').textContent = state.strength.toFixed(2); $('fxLabel').textContent = labelFor(); $('padAge').textContent = ageText(ageDelta(state.formant, state.pitch)); drawPadGrid(); });
+$('strength').addEventListener('input', (e) => { state.strength = +e.target.value; $('strengthOut').textContent = state.strength.toFixed(2); $('fxLabel').textContent = labelFor(); showNotes(); drawPadGrid(); });
 $('strength').addEventListener('change', render);
 
 // ------------------------------------------------------------ recording
@@ -282,7 +296,7 @@ async function startRec() {
   src.connect(proc); proc.connect(mute); mute.connect(ctx.destination);
   rec = { stream, src, proc, mute, parts, get n() { return n; }, sr: ctx.sampleRate, t0 };
   $('recBtn').classList.add('on'); $('recBtn').dataset.i18nAria = 'recStop'; $('recBtn').setAttribute('aria-label', t('recStop'));
-  $('recHint').dataset.i18n = 'recHintOn'; $('recHint').textContent = t('recHintOn');
+  $('recHint').dataset.i18n = 'recHintOn'; $('recHint').textContent = t('recHintOn'); $('recHint').hidden = false;
 }
 function stopRec() {
   if (!rec) return;
@@ -291,7 +305,7 @@ function stopRec() {
   r.stream.getTracks().forEach(t => t.stop());
   $('recBtn').classList.remove('on'); $('recBtn').dataset.i18nAria = 'recStart'; $('recBtn').setAttribute('aria-label', t('recStart'));
   $('level').style.width = '0';
-  $('recHint').dataset.i18n = 'recHint'; $('recHint').textContent = t('recHint');
+  $('recHint').hidden = true;
   const pcm = new Float32Array(r.n); let o = 0; for (const p of r.parts) { pcm.set(p, o); o += p.length; }
   // drop the first 150 ms (button tap)
   loadTake(pcm.subarray(Math.round(0.15 * r.sr)), r.sr, 'recording');
@@ -355,7 +369,7 @@ function refreshLang() {
   $('ver').textContent = t('version', { v: VERSION });
   $('fxLabel').textContent = labelFor();
   if ($('fxState').dataset.done && state.lastMs != null) $('fxState').textContent = t('readyIn', { t: fmtS(state.lastMs) });
-  setPad(state.pitch, state.formant); drawPadGrid(); showAgeGuess();
+  setPad(state.pitch, state.formant); drawPadGrid(); showAgeGuess(); showNotes();
   fillThemes();
   $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
   $('rsCount').textContent = t('rsCount', { n: rsN });
@@ -389,15 +403,52 @@ let rsN = 0;
 async function showCount() { rsN = await Research.count(); $('rsCount').textContent = t('rsCount', { n: rsN }); $('rsSendBtn').disabled = !rsN; }
 $('rsBox').checked = Research.optedIn;
 $('rsBox').addEventListener('change', () => { Research.setOptIn($('rsBox').checked); $('rsState').textContent = ''; });
+async function reviewAndConfirm() { // show exactly what is in the file; resolve true only on "send"
+  const rv = await Research.review();
+  if (!rv.rows.length) { $('rsState').textContent = t('rsEmpty'); return false; }
+  $('rvFiles').textContent = t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) });
+  $('rvId').textContent = t('rvId', { id: Research.device });
+  $('rvCsv').textContent = rv.csv;
+  const tb = $('rvRows'); tb.innerHTML = '';
+  const seen = new Set();
+  for (const r of rv.rows) {
+    if (!seen.has(r.take_id)) { // the original once per take
+      seen.add(r.take_id);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${t('rvOriginal')} · ${r.duration_s} s</td><td>${r.original_age_guess ?? '–'}</td><td><button type="button" class="rv-play" data-key="${r.take_id}/original.wav">${t('rvPlay')}</button></td>`;
+      tb.appendChild(tr);
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${t(r.direction)} · ${r.pitch_st >= 0 ? '+' : ''}${r.pitch_st} ${t('st')} · ${r.formant_pct >= 0 ? '+' : ''}${r.formant_pct}% · ${t('textureShort')} ${r.texture}</td><td>${r.est_age ?? '–'}</td><td><button type="button" class="rv-play" data-key="${r.take_id}/${r.try_id}.wav">${t('rvPlay')}</button></td>`;
+    tb.appendChild(tr);
+  }
+  const dlg = $('review'), au = $('rvAudio');
+  tb.onclick = async (e) => {
+    const b = e.target.closest('.rv-play'); if (!b) return;
+    const blob = await Research.getAudio(b.dataset.key); if (!blob) return;
+    if (au.dataset.url) URL.revokeObjectURL(au.dataset.url);
+    au.dataset.url = au.src = URL.createObjectURL(blob); au.play().catch(() => {});
+  };
+  dlg.addEventListener('close', () => { au.pause(); }, { once: true });
+  dlg.returnValue = ''; dlg.showModal();
+  return true;
+}
+let pendingZip = null;
+// Share inside the confirm tap itself: phones only allow the share sheet straight from a tap.
+$('rvOk').addEventListener('click', () => {
+  if (!pendingZip) return;
+  const file = pendingZip; pendingZip = null;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: file.name }).catch((e) => { if (e.name !== 'AbortError') $('rsState').textContent = t('rsFail', { e: e.message }); });
+  } else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
+});
 $('rsSendBtn').onclick = async () => {
   try {
-    const { blob, rows } = await Research.exportZip();
+    const { blob, rows } = await Research.exportZip(); // build first, so the confirm tap can share at once
     if (!rows) { $('rsState').textContent = t('rsEmpty'); return; }
     const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
-    const file = new File([blob], name, { type: 'application/zip' });
-    try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } }
-    catch (e) { if (e.name === 'AbortError') return; }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+    pendingZip = new File([blob], name, { type: 'application/zip' });
+    await reviewAndConfirm();
   } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
 };
 $('rsDelBtn').onclick = async () => { await Research.clear(); $('rsState').textContent = t('rsDeleted'); showCount(); };
@@ -410,13 +461,31 @@ if (window.YV_PREVIEW) {
   document.querySelector('.rec-row').hidden = true;
   $('nsBox').parentElement.hidden = true;
   $('shareBtn').hidden = true;
-  $('offlineTag').dataset.i18n = 'pvTag';
   const n = document.createElement('p'); n.className = 'hint';
   n.dataset.i18nHtml = 'pvNote';
-  $('takeH').after(n);
+  $('takeH').parentElement.after(n);
   $('foot1').dataset.i18n = 'pvFoot';
   const lbl = document.querySelector('.filebtn'); lbl.className = 'btn primary'; lbl.dataset.i18n = 'pvOpen';
 }
+// ------------------------------------------------------------ (i) pop-ups
+let popEl = null, popBtn = null;
+function closePop() { if (popEl) { popEl.remove(); popEl = null; } if (popBtn) { popBtn.setAttribute('aria-expanded', 'false'); popBtn = null; } }
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.info');
+  if (!b) { if (popEl && !popEl.contains(e.target)) closePop(); return; }
+  e.preventDefault(); e.stopPropagation();
+  const same = b === popBtn; closePop(); if (same) return;
+  popBtn = b; b.setAttribute('aria-expanded', 'true');
+  popEl = document.createElement('div'); popEl.className = 'pop'; popEl.setAttribute('role', 'note');
+  popEl.textContent = t(b.dataset.info); document.body.appendChild(popEl);
+  const r = b.getBoundingClientRect(), w = popEl.offsetWidth;
+  popEl.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, r.left + r.width / 2 - w / 2)) + window.scrollX + 'px';
+  popEl.style.top = r.bottom + 8 + window.scrollY + 'px';
+}, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePop(); });
+window.addEventListener('resize', closePop);
+langSel.addEventListener('change', closePop);
+
 refreshLang();
 applyTheme();
 showCount();
