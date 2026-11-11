@@ -331,6 +331,49 @@
     return { f0, sp, ap };
   }
 
+
+  // ---------------------------------------------------------------- rough voice features (for an unscientific age guess)
+  function voiceFeatures(f0, sp, ap, nb, sr) {
+    const freqs = new Float64Array(nb);
+    for (let i = 0; i < nb; i++) freqs[i] = (sr / 2) * i / (nb - 1);
+    const voiced = []; for (let i = 0; i < f0.length; i++) if (f0[i] > 0) voiced.push(f0[i]);
+    if (voiced.length < 40) return null;
+    const sorted = voiced.slice().sort((a, b) => a - b), f0med = sorted[sorted.length >> 1];
+    let jitSum = 0, jitN = 0, shSum = 0, shN = 0;
+    for (const [a, b] of voicedSegments(f0)) {
+      const L = b - a, cents = new Float64Array(L), le = new Float64Array(L);
+      for (let i = 0; i < L; i++) {
+        cents[i] = 1200 * Math.log2(f0[a + i]);
+        let tE = 0; const o = (a + i) * nb; for (let k = 0; k < nb; k++) tE += sp[o + k]; le[i] = Math.log(tE + 1e-12);
+      }
+      const jh = filt(F.HP, cents), sh = filt(F.HP, le);
+      for (let i = 0; i < L; i++) { jitSum += jh[i] * jh[i]; shSum += sh[i] * sh[i]; }
+      jitN += L; shN += L;
+    }
+    let apS = 0, apN = 0, tilt = 0, tN = 0;
+    for (let i = 0; i < f0.length; i++) {
+      if (!(f0[i] > 0)) continue;
+      const o = i * nb; let lo = 0, hi = 0;
+      for (let k = 0; k < nb; k++) {
+        const fq = freqs[k];
+        if (fq >= 500 && fq <= 3000) { apS += ap[o + k]; apN++; }
+        if (fq >= 100 && fq < 1500) lo += sp[o + k]; else if (fq >= 3000 && fq < 6000) hi += sp[o + k];
+      }
+      tilt += 10 * Math.log10((hi + 1e-20) / (lo + 1e-20)); tN++;
+    }
+    return { f0med, jitter: Math.sqrt(jitSum / Math.max(1, jitN)), shimmer: Math.sqrt(shSum / Math.max(1, shN)),
+      breath: apS / Math.max(1, apN), tilt: tilt / Math.max(1, tN) };
+  }
+
+  // Unscientific age guess for a singing take. Least-squares fit of the step 2 blind-test ratings
+  // (one listener, 3 singers x original / younger 0.5 / younger 1.0 / older 1.0; RMSE about 6 years on
+  // those 12 clips) to loudness flutter and spectral tilt. Expect errors of 10+ years on new voices.
+  function guessAge(ft) {
+    if (!ft) return null;
+    const a = 75.19 + 27.39 * Math.log(Math.max(1e-3, ft.shimmer)) - 0.46 * ft.tilt;
+    return Math.max(18, Math.min(85, a));
+  }
+
   function matchLoudness(y, ref) {
     const rms = z => { let s = 0; for (const v of z) s += v * v; return Math.sqrt(s / z.length + 1e-12); };
     const k = rms(ref) / rms(y);
@@ -382,7 +425,7 @@
   }
 
   F.HP = { sos: [[0.7655999879134588, -1.5311999758269177, 0.7655999879134588, 1.0, -1.475480443592646, 0.5869195080611902]], zi: [[-0.7655999879134588, 0.7655999879134588]] };
-  const VoiceCore = { createWorld, transform, matchLoudness, FRAME_MS, _F: F, _internals: { filt, hilbert, smooth, steadyMask, unwrap } };
+  const VoiceCore = { createWorld, transform, matchLoudness, voiceFeatures, guessAge, FRAME_MS, _F: F, _internals: { filt, hilbert, smooth, steadyMask, unwrap } };
   root.VoiceCore = VoiceCore;
   if (typeof module !== 'undefined') module.exports = VoiceCore;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -25,6 +25,7 @@
   --rec: #d6402e;       /* REC lamp */
   --young: #1f7a6d;     /* younger: fresh teal */
   --old: #a4651b;       /* older: patina amber */
+  --now: #2f8f3e;       /* original-age contour: green */
   --accent: var(--young);
   --display: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
   --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
@@ -34,12 +35,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #16141a; --panel: #211e26; --ink: #f1ece6; --muted: #a39aa6; --line: #34303a;
-    --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; color-scheme: dark;
+    --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; --now: #5fcf6e; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #16141a; --panel: #211e26; --ink: #f1ece6; --muted: #a39aa6; --line: #34303a;
-  --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; color-scheme: dark;
+  --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; --now: #5fcf6e; color-scheme: dark;
 }
 :root.older { --accent: var(--old); }
 * { box-sizing: border-box; }
@@ -114,7 +115,22 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 .pad .ax-x { top: 6px; right: 8px; }
 .pad .dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--accent); border: 3px solid var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,.3); pointer-events: none; }
 .pad + .scale { margin-top: 6px; }
-.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.pad .unl { fill: var(--ink); opacity: .07; }
+.pad .bandedge { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; }
+.pad .iso { fill: none; stroke-width: 1.5; opacity: .85; }
+.pad .iso.y { stroke: var(--young); } .pad .iso.o { stroke: var(--old); }
+.pad .iso.z { stroke: var(--now); stroke-width: 4; opacity: 1; }
+.pad .isolab { font: 600 10px var(--mono); fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+.pad .isolab.now { fill: var(--now); font-size: 11px; font-weight: 700; }
+.padage { margin: -4px 0 0; font: 600 .9rem var(--body); color: var(--accent); font-variant-numeric: tabular-nums; }
+#ageGuess { margin-top: -4px; }
+.linkbtn { white-space: nowrap; border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+/* language picker */
+.lang { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px 4px 10px; margin-left: auto; }
+.lang-ico { font: 700 .78rem var(--body); color: var(--accent); }
+.lang select { border: 0; background: transparent; color: var(--ink); font: 600 .88rem var(--body); padding: 2px 0; cursor: pointer; }
+header .tag { flex-basis: 100%; }
 
 /* players */
 .player { display: grid; gap: 6px; }
@@ -143,24 +159,25 @@ footer a { color: inherit; }
 <body>
 <main>
   <header>
-    <h1>Younger Voice</h1>
-    <span class="tag" id="offlineTag">On this phone · no upload</span>
+    <h1 data-i18n="appName">Younger Voice</h1>
+    <label class="lang" for="langSel"><span class="lang-ico" aria-hidden="true">文A</span><select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
+    <span class="tag" id="offlineTag" data-i18n="tag">On this phone · no upload</span>
   </header>
 
   <section aria-labelledby="takeH">
-    <h2 id="takeH">1 · Sing a few lines</h2>
+    <h2 id="takeH" data-i18n="takeH">1 · Sing a few lines</h2>
     <div class="rec-row">
-      <button id="recBtn" aria-label="Start recording"><span class="dot"></span></button>
+      <button id="recBtn" data-i18n-aria="recStart" aria-label="Start recording"><span class="dot"></span></button>
       <div class="rec-meta">
-        <div id="timer">0:00 <small>/ 1:30 max</small></div>
+        <div id="timer">0:00 <small data-i18n="timerMax">/ 1:30 max</small></div>
         <div class="meter" aria-hidden="true"><i id="level"></i></div>
-        <p class="hint" id="recHint">A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
+        <p class="hint" id="recHint" data-i18n="recHint">A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
       </div>
     </div>
     <div class="row">
-      <label class="filebtn" for="fileIn">Or open a recording…</label>
+      <label class="filebtn" for="fileIn" data-i18n="openFile">Or open a recording…</label>
       <input type="file" id="fileIn" accept="audio/*,.m4a,.wav,.mp3,.aac">
-      <label class="check"><input type="checkbox" id="nsBox"> Phone noise reduction</label>
+      <label class="check"><input type="checkbox" id="nsBox"> <span data-i18n="noise">Phone noise reduction</span></label>
     </div>
     <div class="progress" id="prog" hidden>
       <p class="hint" id="progText">Reading your voice…</p>
@@ -170,67 +187,70 @@ footer a { color: inherit; }
   </section>
 
   <section aria-labelledby="ageH">
-    <h2 id="ageH">2 · Choose the age</h2>
-    <div class="seg" role="group" aria-label="Direction">
-      <button id="dirYoung" aria-pressed="true">Younger</button>
-      <button id="dirOld" aria-pressed="false">Older</button>
+    <h2 id="ageH" data-i18n="ageH">2 · Choose the age</h2>
+    <div class="seg" role="group" data-i18n-aria="direction" aria-label="Direction">
+      <button id="dirYoung" aria-pressed="true" data-i18n="younger">Younger</button>
+      <button id="dirOld" aria-pressed="false" data-i18n="older">Older</button>
     </div>
     <div>
-      <div class="slider-head"><label for="pad">Pitch × formant</label><output id="padOut">+0.0 st · +5%</output></div>
-      <div class="pad" id="pad" role="slider" tabindex="0" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
+      <div class="slider-head"><label for="pad" data-i18n="padLabel">Pitch × formant</label><output id="padOut">+0.0 st · +5%</output></div>
+      <p class="hint" id="ageGuess" hidden></p>
+      <p class="padage" id="padAge" aria-live="polite"></p>
+      <div class="pad" id="pad" role="slider" tabindex="0" data-i18n-aria="padAria" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
         <svg id="padGrid" aria-hidden="true"></svg>
-        <span class="ax ax-y">Pitch ↑</span>
-        <span class="ax ax-x">Formant →</span>
+        <span class="ax ax-y" data-i18n="padY">Pitch ↑</span>
+        <span class="ax ax-x" data-i18n="padX">Formant →</span>
         <i class="dot" id="padDot"></i>
       </div>
-      <div class="scale"><span id="padHint">Drag the dot. Shaded box: a likely 20s.</span><button class="linkbtn" id="padReset">Reset</button></div>
+      <div class="scale"><span id="padHint" data-i18n="padHint">Drag the dot. Lines: rough age (thick green = now). Grey corners: unlikely mixes.</span><button class="linkbtn" id="padReset" data-i18n="reset">Reset</button></div>
     </div>
     <div>
-      <div class="slider-head"><label for="strength">Texture strength</label><output id="strengthOut">0.60</output></div>
+      <div class="slider-head"><label for="strength" data-i18n="texture">Texture strength</label><output id="strengthOut">0.60</output></div>
       <input type="range" id="strength" min="0" max="1.5" step="0.05" value="0.6">
-      <div class="scale"><span>none</span><span>vibrato, breath, brightness</span><span>strong</span></div>
+      <div class="scale"><span data-i18n="texNone">none</span><span data-i18n="texMid">vibrato, breath, brightness</span><span data-i18n="texStrong">strong</span></div>
     </div>
     <details>
-      <summary>Fine-tune each cue</summary>
+      <summary data-i18n="cuesSummary">Fine-tune each cue</summary>
       <div class="cues" id="cues"></div>
     </details>
   </section>
 
   <section aria-labelledby="listenH">
-    <h2 id="listenH">3 · Listen</h2>
+    <h2 id="listenH" data-i18n="listenH">3 · Listen</h2>
     <div class="player">
-      <div class="player-head"><b>Your take</b><span class="hint" id="origLen"></span></div>
+      <div class="player-head"><b data-i18n="yourTake">Your take</b><span class="hint" id="origLen"></span></div>
       <audio id="origAudio" controls preload="auto"></audio>
     </div>
     <div class="player">
-      <div class="player-head"><b id="fxLabel">Younger · 0.60</b><span class="hint" id="fxState">Record or open a take first</span></div>
+      <div class="player-head"><b id="fxLabel">Younger · 0.60</b><span class="hint" id="fxState" data-i18n="fxIdle">Record or open a take first</span></div>
       <audio id="fxAudio" controls preload="auto"></audio>
     </div>
     <div class="row">
-      <button class="btn primary" id="shareBtn" disabled>Save or share</button>
-      <button class="btn" id="sampleBtn">Try a sample voice</button>
+      <button class="btn primary" id="shareBtn" disabled data-i18n="share">Save or share</button>
+      <button class="btn" id="sampleBtn" data-i18n="sample">Try a sample voice</button>
     </div>
   </section>
 
   <section aria-labelledby="speedH">
-    <h2 id="speedH">Speed on this device</h2>
+    <h2 id="speedH" data-i18n="speedH">Speed on this device</h2>
     <table>
       <tbody>
-        <tr><td>Length of take</td><td id="sLen">–</td></tr>
-        <tr><td>Reading the voice (once per take)</td><td id="sAna">–</td></tr>
-        <tr><td>Applying the age effect</td><td id="sFx">–</td></tr>
-        <tr><td>Total, as a share of take length</td><td id="sRt">–</td></tr>
+        <tr><td data-i18n="sLen">Length of take</td><td id="sLen">–</td></tr>
+        <tr><td data-i18n="sAna">Reading the voice (once per take)</td><td id="sAna">–</td></tr>
+        <tr><td data-i18n="sFx">Applying the age effect</td><td id="sFx">–</td></tr>
+        <tr><td data-i18n="sRt">Total, as a share of take length</td><td id="sRt">–</td></tr>
       </tbody>
     </table>
-    <div class="row"><button class="btn" id="copyBtn">Copy speed report</button><span class="hint" id="copyNote"></span></div>
+    <div class="row"><button class="btn" id="copyBtn" data-i18n="copy">Copy speed report</button><span class="hint" id="copyNote"></span></div>
   </section>
 
   <footer>
-    <p>Proof of concept. Everything runs in this browser; your recordings never leave the phone. After the first visit it works in airplane mode.</p>
-    <p>Built on the WORLD vocoder © M. Morise (modified BSD licence). Sample voice: MTG sms-tools-materials, CC BY 4.0.</p>
+    <p id="foot1" data-i18n="foot1">Proof of concept. Everything runs in this browser; your recordings never leave the phone. After the first visit it works in airplane mode.</p>
+    <p data-i18n="foot2">Built on the WORLD vocoder © M. Morise (modified BSD licence). Sample voice: MTG sms-tools-materials, CC BY 4.0.</p>
     <p id="ver"></p>
   </footer>
 </main>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

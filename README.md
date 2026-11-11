@@ -25,6 +25,12 @@ Pitch (f0 shift, keeps formants) and formant (vocal-tract stretch, keeps pitch) 
 not depend on the strength slider. In voicecore.transform they are the cues `pitch_cents` and `formant_pct`; with
 `formant_pct` unset the old strength-scaled formant cue is used, so rejuvenate.py parity is unchanged.
 
+## Languages and age estimate (poc-3, 2026-11-11)
+- i18n.js: English, 한국어, 日本語, 中文, Français, Español. Picker in the header; first visit follows the phone language, the choice is remembered on the device.
+- The pad draws rough age contour lines (every 10 years). Weights follow published voice-aging trends, scaled to the 2026-11-10 blind test; not fitted to data.
+- After reading a take, the app guesses its age (voicecore.guessAge: loudness flutter + spectral tilt, least-squares fit to the one-listener blind-test ratings of 12 clips, RMSE ~6 years on those clips). The thick green line is that age. Unscientific: expect 10+ years of error on new voices.
+- Grey corners on the pad: unlikely mixes (high pitch with low formants, or low pitch with high formants). Likely band: pitch = 0.2 st per 1 % formant, ±1.25 st.
+
 ## Licences
 WORLD: modified BSD (keep WORLD-LICENSE.txt with the app). All other code is project code. No GPL.
 
