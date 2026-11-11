@@ -63,7 +63,7 @@ function render({ strength, direction, cues }) {
   let prev = null; // previous chunk's output + offset
   chunks.forEach((c, k) => {
     let f0 = c.f0, sp = Float64Array.from(c.sp), ap = Float64Array.from(c.ap);
-    if (strength > 0) ({ f0, sp, ap } = VC.transform(f0, sp, ap, c.nb, sr, strength, direction, cues, k));
+    if (strength > 0 || cues.pitch_cents || cues.formant_pct) ({ f0, sp, ap } = VC.transform(f0, sp, ap, c.nb, sr, strength, direction, cues, k));
     const y = world.synth(f0, sp, ap, c.fft, sr); // covers [from, from + y.length)
     const val = (i) => { const j = i - c.from; return j >= 0 && j < y.length ? y[j] : 0; };
     for (let i = c.start; i < c.end; i++) out[i] = val(i);

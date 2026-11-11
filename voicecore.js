@@ -196,7 +196,7 @@
   // ---------------------------------------------------------------- transform
   // f0: Float64Array(nf); sp, ap: Float64Array(nf*nb) row-major. Returns new arrays.
   function transform(f0In, spIn, apIn, nb, sr, strength = 0.6, direction = 'younger', cues = {}, seed = 0) {
-    const C = Object.assign({ vibrato: 1, jitter: 1, shimmer: 1, breath: 1, tilt: 1, formant: 1, clarity: 1, pitch_cents: 0 }, cues);
+    const C = Object.assign({ vibrato: 1, jitter: 1, shimmer: 1, breath: 1, tilt: 1, formant: 1, clarity: 1, pitch_cents: 0, formant_pct: null }, cues);
     const P = direction === 'younger' ? YOUNGER : OLDER;
     const s = +strength, older = direction === 'older';
     const rng = makeRng(seed + 1);
@@ -276,7 +276,9 @@
     }
 
     // --- formant stretch (np.interp on the log envelope)
-    const alpha = lerp(P.formant, C.formant);
+    // formant_pct (if given) sets the vocal-tract stretch directly, independent of strength,
+    // so pitch and formant can be explored as two separate axes.
+    const alpha = (C.formant_pct != null) ? 1 + C.formant_pct / 100 : lerp(P.formant, C.formant);
     if (Math.abs(alpha - 1) > 1e-4) {
       const df = freqs[1] - freqs[0];
       const idx = new Int32Array(nb), fr = new Float64Array(nb);
