@@ -196,7 +196,8 @@
   // ---------------------------------------------------------------- transform
   // f0: Float64Array(nf); sp, ap: Float64Array(nf*nb) row-major. Returns new arrays.
   function transform(f0In, spIn, apIn, nb, sr, strength = 0.6, direction = 'younger', cues = {}, seed = 0) {
-    const C = Object.assign({ vibrato: 1, jitter: 1, shimmer: 1, breath: 1, tilt: 1, formant: 1, clarity: 1, pitch_cents: 0, formant_pct: null }, cues);
+    const C = Object.assign({ vibrato: 1, jitter: 1, shimmer: 1, breath: 1, tilt: 1, formant: 1, clarity: 1, pitch_cents: 0, formant_pct: null,
+      wobble_pct: 0, hnr_db: 0 }, cues);
     const P = direction === 'younger' ? YOUNGER : OLDER;
     const s = +strength, older = direction === 'older';
     const rng = makeRng(seed + 1);
@@ -251,6 +252,16 @@
         f0[a + i] = Math.pow(2, (cents[i] + m[i] * ((vNew - vib[i]) + (jNew - jit[i]))) / 1200);
       }
     }
+    // steadiness: scale how far pitch wanders around the sung melody (vibrato + drift + jitter), absolute, in %
+    if (C.wobble_pct) {
+      const g = Math.max(0, 1 + C.wobble_pct / 100);
+      for (const [a, b] of voicedSegments(f0)) {
+        const L = b - a, cents = new Float64Array(L);
+        for (let i = 0; i < L; i++) cents[i] = 1200 * Math.log2(f0[a + i]);
+        const base = filt(F.LP, cents);
+        for (let i = 0; i < L; i++) f0[a + i] = Math.pow(2, (base[i] + g * (cents[i] - base[i])) / 1200);
+      }
+    }
     if (C.pitch_cents) { const k = Math.pow(2, C.pitch_cents / 1200); for (let i = 0; i < nf; i++) if (f0[i] > 0) f0[i] *= k; }
 
     // --- shimmer
@@ -273,6 +284,12 @@
         const o = i * nb;
         for (let k = 0; k < nb; k++) ap[o + k] = Math.min(1 - 1e-6, Math.max(1e-3, ap[o + k] * g[k]));
       }
+    }
+
+    // clarity in dB of harmonics-to-noise: lower aperiodicity by that much, absolute
+    if (C.hnr_db) {
+      const g = Math.pow(10, -C.hnr_db / 20);
+      for (let i = 0; i < nf; i++) if (f0[i] > 0) { const o = i * nb; for (let k = 0; k < nb; k++) ap[o + k] = Math.min(1 - 1e-6, Math.max(1e-3, ap[o + k] * g)); }
     }
 
     // --- formant stretch (np.interp on the log envelope)
@@ -332,7 +349,7 @@
   }
 
 
-  // ---------------------------------------------------------------- rough voice features (for an unscientific age guess)
+  // ---------------------------------------------------------------- voice features: pitch, steadiness, clarity
   function voiceFeatures(f0, sp, ap, nb, sr) {
     const freqs = new Float64Array(nb);
     for (let i = 0; i < nb; i++) freqs[i] = (sr / 2) * i / (nb - 1);
@@ -361,17 +378,16 @@
       }
       tilt += 10 * Math.log10((hi + 1e-20) / (lo + 1e-20)); tN++;
     }
+    let wSum = 0, wN = 0; // pitch wander around the melody line, in semitones (RMS)
+    for (const [a, b] of voicedSegments(f0)) {
+      const L = b - a, cents = new Float64Array(L);
+      for (let i = 0; i < L; i++) cents[i] = 1200 * Math.log2(f0[a + i]);
+      const base = filt(F.LP, cents);
+      for (let i = 0; i < L; i++) { const d = (cents[i] - base[i]) / 100; wSum += d * d; } wN += L;
+    }
+    const breath = apS / Math.max(1, apN);
     return { f0med, jitter: Math.sqrt(jitSum / Math.max(1, jitN)), shimmer: Math.sqrt(shSum / Math.max(1, shN)),
-      breath: apS / Math.max(1, apN), tilt: tilt / Math.max(1, tN) };
-  }
-
-  // Unscientific age guess for a singing take. Least-squares fit of the step 2 blind-test ratings
-  // (one listener, 3 singers x original / younger 0.5 / younger 1.0 / older 1.0; RMSE about 6 years on
-  // those 12 clips) to loudness flutter and spectral tilt. Expect errors of 10+ years on new voices.
-  function guessAge(ft) {
-    if (!ft) return null;
-    const a = 75.19 + 27.39 * Math.log(Math.max(1e-3, ft.shimmer)) - 0.46 * ft.tilt;
-    return Math.max(18, Math.min(85, a));
+      breath, tilt: tilt / Math.max(1, tN), wobble: Math.sqrt(wSum / Math.max(1, wN)), hnr: -20 * Math.log10(Math.max(1e-4, breath)) };
   }
 
   function matchLoudness(y, ref) {
@@ -425,7 +441,7 @@
   }
 
   F.HP = { sos: [[0.7655999879134588, -1.5311999758269177, 0.7655999879134588, 1.0, -1.475480443592646, 0.5869195080611902]], zi: [[-0.7655999879134588, 0.7655999879134588]] };
-  const VoiceCore = { createWorld, transform, matchLoudness, voiceFeatures, guessAge, FRAME_MS, _F: F, _internals: { filt, hilbert, smooth, steadyMask, unwrap } };
+  const VoiceCore = { createWorld, transform, matchLoudness, voiceFeatures, FRAME_MS, _F: F, _internals: { filt, hilbert, smooth, steadyMask, unwrap } };
   root.VoiceCore = VoiceCore;
   if (typeof module !== 'undefined') module.exports = VoiceCore;
 })(typeof self !== 'undefined' ? self : globalThis);

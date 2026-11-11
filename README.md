@@ -55,3 +55,10 @@ Read the voice in parallel workers (one per chunk); DIO instead of Harvest for p
 - Language: new "Automatic" choice (the default) follows the phone/browser language; picking a language pins it.
 - Theme: new "By date" choice (the default) picks spring/summer/fall/winter, Thanksgiving week or Christmas (Dec 1–26) from today's date.
 - Age: the app now asks "How old do you think you sound?" (kept on the phone, `yv-self-age`). The answer sets the green line; the app's own guess is shown as a range with a disclaimer and used only when no answer is given. The research CSV gains a `self_rated_age` column so the guess can be refit later.
+
+## poc-8 (new main screen)
+- One screen, no page scroll on a 390x844 phone; Listen bar (Original / Younger / Share) pinned at the bottom; Settings gear holds noise reduction, per-cue fine-tune, speed table.
+- "Your age → Sound like" tiles (Teens…60+) replace the pitch × formant pad and Younger/Older. The age guess (guessAge) is removed.
+- Male/Female (pre-filled from the take's pitch, 280 Hz for singing) and five sliders with Common Voice defaults: Pitch (st), Steadiness (% pitch wander around the melody, new `wobble_pct` cue), Voice size (formant %), Clarity (harmonics-to-noise dB, new `hnr_db` cue), Texture (0–1.5). "Typical" resets them; 3-bar icons show how much each changes between the chosen ages.
+- Old recording (audio or video): first 2.5 min, at 16 kHz, measured in the worker (`measure`); its pitch, steadiness and clarity replace the averages (capped at ±3 st, ±40 %, ±3 dB).
+- Help improve this app: switch, Send / Send, no audio, remove audio, delete; review dialog kept. Log adds band, voice, slider values and typical values, device info (platform, model via client hints, cores, memory, screen, user agent) and analysis/effect timings.
