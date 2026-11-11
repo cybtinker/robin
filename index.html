@@ -102,6 +102,20 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 .cue input { grid-column: 1 / -1; height: 26px; }
 .cue output { font: .82rem var(--mono); color: var(--muted); }
 
+/* pitch x formant pad */
+.pad { position: relative; aspect-ratio: 4 / 3; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; touch-action: none; cursor: crosshair; overflow: hidden; user-select: none; -webkit-user-select: none; }
+.pad svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pad .gl { stroke: var(--line); stroke-width: 1; }
+.pad .g0 { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.pad .zone { fill: var(--accent); opacity: .13; }
+.pad .tick { fill: var(--muted); font: 10px var(--mono); }
+.pad .ax { position: absolute; font: 600 .72rem var(--body); color: var(--muted); pointer-events: none; }
+.pad .ax-y { top: 6px; left: 8px; }
+.pad .ax-x { top: 6px; right: 8px; }
+.pad .dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--accent); border: 3px solid var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,.3); pointer-events: none; }
+.pad + .scale { margin-top: 6px; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
 /* players */
 .player { display: grid; gap: 6px; }
 .player-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -162,9 +176,19 @@ footer a { color: inherit; }
       <button id="dirOld" aria-pressed="false">Older</button>
     </div>
     <div>
-      <div class="slider-head"><label for="strength">Strength</label><output id="strengthOut">0.60</output></div>
+      <div class="slider-head"><label for="pad">Pitch × formant</label><output id="padOut">+0.0 st · +5%</output></div>
+      <div class="pad" id="pad" role="slider" tabindex="0" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
+        <svg id="padGrid" aria-hidden="true"></svg>
+        <span class="ax ax-y">Pitch ↑</span>
+        <span class="ax ax-x">Formant →</span>
+        <i class="dot" id="padDot"></i>
+      </div>
+      <div class="scale"><span id="padHint">Drag the dot. Shaded box: a likely 20s.</span><button class="linkbtn" id="padReset">Reset</button></div>
+    </div>
+    <div>
+      <div class="slider-head"><label for="strength">Texture strength</label><output id="strengthOut">0.60</output></div>
       <input type="range" id="strength" min="0" max="1.5" step="0.05" value="0.6">
-      <div class="scale"><span>none</span><span>0.5–0.7 ≈ your 20s</span><span>strong</span></div>
+      <div class="scale"><span>none</span><span>vibrato, breath, brightness</span><span>strong</span></div>
     </div>
     <details>
       <summary>Fine-tune each cue</summary>

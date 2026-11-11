@@ -1,6 +1,6 @@
 /* Younger Voice PoC: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-1';
+const VERSION = 'poc-2';
 const MAX_S = 90;
 const $ = (id) => document.getElementById(id);
 
@@ -23,10 +23,10 @@ const call = (cmd, args, transfer = []) => new Promise((resolve, reject) => {
 call('warmup').catch(() => {});
 
 // ------------------------------------------------------------ state
-const state = { direction: 'younger', strength: 0.6, cues: {}, take: null, timings: {}, fxBlob: null, busy: false, queued: false };
+const state = { direction: 'younger', strength: 0.6, pitch: 0, formant: 5, cues: {}, take: null, timings: {}, fxBlob: null, busy: false, queued: false };
 const CUES = [
   ['vibrato', 'Vibrato'], ['jitter', 'Pitch roughness'], ['shimmer', 'Loudness flutter'],
-  ['breath', 'Breathiness'], ['tilt', 'Brightness'], ['formant', 'Vocal tract size'], ['clarity', 'Clarity'],
+  ['breath', 'Breathiness'], ['tilt', 'Brightness'], ['clarity', 'Clarity'],
 ];
 CUES.forEach(([k, label]) => {
   state.cues[k] = 1;
@@ -104,7 +104,7 @@ async function render() {
   $('fxState').textContent = 'Working…';
   showProgress('Applying the effect…', 0.05);
   try {
-    const r = await call('render', { strength: state.strength, direction: state.direction, cues: state.cues });
+    const r = await call('render', { strength: state.strength, direction: state.direction, cues: { ...state.cues, pitch_cents: Math.round(state.pitch * 100), formant_pct: state.formant } });
     state.timings.render = r.ms;
     state.fxBlob = wavBlob(r.pcm, state.take.sr);
     setAudio($('fxAudio'), state.fxBlob);
@@ -122,16 +122,72 @@ async function render() {
   state.busy = false;
   if (state.queued) { state.queued = false; render(); }
 }
-const labelFor = () => `${state.direction === 'younger' ? 'Younger' : 'Older'} · ${state.strength.toFixed(2)}`;
+const sgn = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
+const padText = () => `${sgn(state.pitch, 1)} st · ${sgn(state.formant, 0)}%`;
+const labelFor = () => `${state.direction === 'younger' ? 'Younger' : 'Older'} · ${padText()} · texture ${state.strength.toFixed(2)}`;
 
 // ------------------------------------------------------------ controls
 function setDirection(d) {
   state.direction = d;
+  setPad(0, PAD_DEFAULT[d]);
   $('dirYoung').setAttribute('aria-pressed', d === 'younger');
   $('dirOld').setAttribute('aria-pressed', d === 'older');
   document.documentElement.classList.toggle('older', d === 'older');
   render();
 }
+// Pitch x formant pad: x = formant shift (%), y = pitch shift (semitones).
+// Both are absolute and independent of the texture strength slider.
+const PAD = { fMin: -8, fMax: 16, pMin: -2, pMax: 4 };
+const PAD_DEFAULT = { younger: 5, older: -4 }; // formant % that matches strength 0.6 of the old single dial
+const ZONE = { f0: 3, f1: 8, p0: 0, p1: 1 };    // blind test: strength 0.5–0.7 ≈ 20s; keep pitch small (key)
+const padEl = $('pad'), dotEl = $('padDot');
+const fx = (f) => (f - PAD.fMin) / (PAD.fMax - PAD.fMin), py = (p) => 1 - (p - PAD.pMin) / (PAD.pMax - PAD.pMin);
+function drawPadGrid() {
+  const svg = $('padGrid'), W = padEl.clientWidth, H = padEl.clientHeight;
+  if (!W) return;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  let h = `<rect class="zone" x="${fx(ZONE.f0) * W}" y="${py(ZONE.p1) * H}" width="${(fx(ZONE.f1) - fx(ZONE.f0)) * W}" height="${(py(ZONE.p0) - py(ZONE.p1)) * H}" rx="6"/>`;
+  for (let f = PAD.fMin; f <= PAD.fMax; f += 4) {
+    const x = fx(f) * W; h += `<line class="${f ? 'gl' : 'g0'}" x1="${x}" x2="${x}" y1="0" y2="${H}"/>`;
+    if (f > PAD.fMin && f < PAD.fMax) h += `<text class="tick" x="${x + 3}" y="${H - 6}">${f > 0 ? '+' : ''}${f}%</text>`;
+  }
+  for (let p = PAD.pMin; p <= PAD.pMax; p += 1) {
+    const y = py(p) * H; h += `<line class="${p ? 'gl' : 'g0'}" x1="0" x2="${W}" y1="${y}" y2="${y}"/>`;
+    if (p > PAD.pMin && p < PAD.pMax) h += `<text class="tick" x="4" y="${y - 3}">${p > 0 ? '+' : ''}${p} st</text>`;
+  }
+  svg.innerHTML = h;
+}
+function setPad(p, f) {
+  state.pitch = Math.round(Math.min(PAD.pMax, Math.max(PAD.pMin, p)) * 10) / 10;
+  state.formant = Math.round(Math.min(PAD.fMax, Math.max(PAD.fMin, f)) * 2) / 2;
+  dotEl.style.left = fx(state.formant) * 100 + '%';
+  dotEl.style.top = py(state.pitch) * 100 + '%';
+  $('padOut').textContent = padText();
+  padEl.setAttribute('aria-valuetext', `pitch ${sgn(state.pitch, 1)} semitones, formant ${sgn(state.formant, 0)} percent`);
+  $('fxLabel').textContent = labelFor();
+}
+function padFromEvent(e) {
+  const r = padEl.getBoundingClientRect();
+  const u = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), v = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+  setPad(PAD.pMin + (1 - v) * (PAD.pMax - PAD.pMin), PAD.fMin + u * (PAD.fMax - PAD.fMin));
+}
+let padDrag = false;
+padEl.addEventListener('pointerdown', (e) => { padDrag = true; padEl.setPointerCapture(e.pointerId); padFromEvent(e); });
+padEl.addEventListener('pointermove', (e) => { if (padDrag) padFromEvent(e); });
+const padEnd = () => { if (padDrag) { padDrag = false; render(); } };
+padEl.addEventListener('pointerup', padEnd);
+padEl.addEventListener('pointercancel', padEnd);
+let padKeyTimer = 0;
+padEl.addEventListener('keydown', (e) => {
+  const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [0.25, 0], ArrowDown: [-0.25, 0] }[e.key];
+  if (!d) return;
+  e.preventDefault(); setPad(state.pitch + d[0], state.formant + d[1]);
+  clearTimeout(padKeyTimer); padKeyTimer = setTimeout(render, 400);
+});
+$('padReset').onclick = () => { setPad(0, PAD_DEFAULT[state.direction]); render(); };
+new ResizeObserver(drawPadGrid).observe(padEl);
+setPad(0, PAD_DEFAULT.younger);
+
 $('dirYoung').onclick = () => setDirection('younger');
 $('dirOld').onclick = () => setDirection('older');
 $('strength').addEventListener('input', (e) => { state.strength = +e.target.value; $('strengthOut').textContent = state.strength.toFixed(2); $('fxLabel').textContent = labelFor(); });
@@ -208,7 +264,7 @@ $('sampleBtn').onclick = async () => {
 // ------------------------------------------------------------ share / report
 $('shareBtn').onclick = async () => {
   if (!state.fxBlob) return;
-  const name = `younger-voice-${state.direction}-${Math.round(state.strength * 100)}.wav`;
+  const name = `younger-voice-${state.direction}-p${Math.round(state.pitch * 100)}c-f${Math.round(state.formant * 10) / 10}pct-t${Math.round(state.strength * 100)}.wav`;
   const file = new File([state.fxBlob], name, { type: 'audio/wav' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
