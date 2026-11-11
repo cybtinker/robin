@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2bb39a"/><stop offset="1" stop-color="#1f7a6d"/></linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b4a33"/><stop offset="1" stop-color="#4a3122"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="276" r="190" fill="#ffffff" opacity=".08"/>
+  <!-- branch -->
+  <path d="M70 410 C170 396 300 398 450 382" stroke="#3a2a1d" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <!-- tail -->
+  <path d="M150 300 L58 372 L84 390 L176 334 Z" fill="#2a1c13"/>
+  <!-- body -->
+  <ellipse cx="236" cy="300" rx="112" ry="88" fill="url(#body)" transform="rotate(-18 236 300)"/>
+  <!-- wing with white patch -->
+  <path d="M150 300 C180 238 262 232 300 268 C268 318 210 342 150 300 Z" fill="#2a1c13"/>
+  <path d="M178 292 C196 276 222 274 238 282 C222 298 198 304 178 292 Z" fill="#f4efe6"/>
+  <!-- neck -->
+  <path d="M262 236 C290 214 330 230 340 262 C318 296 270 300 246 280 Z" fill="#1a1411"/>
+  <!-- head -->
+  <circle cx="318" cy="198" r="74" fill="#1a1411"/>
+  <!-- yellow eye patch -->
+  <path d="M330 172 C352 160 380 170 384 196 C372 214 344 214 330 200 Z" fill="#f2c230"/>
+  <circle cx="352" cy="188" r="11" fill="#1a1411"/>
+  <circle cx="355" cy="185" r="3.5" fill="#fff"/>
+  <!-- open beak, singing -->
+  <path d="M378 196 L452 176 L388 214 Z" fill="#f2c230"/>
+  <path d="M384 218 L446 222 L382 232 Z" fill="#e2a91c"/>
+  <!-- legs -->
+  <path d="M232 380 L224 404 M262 378 L262 402" stroke="#f2c230" stroke-width="10" stroke-linecap="round"/>
+  <!-- notes -->
+  <g fill="#fff6d6">
+    <ellipse cx="452" cy="118" rx="16" ry="12" transform="rotate(-20 452 118)"/>
+    <rect x="462" y="56" width="7" height="62" rx="3"/>
+    <path d="M462 56 q26 6 30 28 q-12 -12 -30 -10 z"/>
+  </g>
+</svg>

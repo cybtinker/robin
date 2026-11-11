@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Younger Voice</title>
+<title>Fledgling</title>
 <meta name="description" content="Record yourself singing and hear a younger or older version of your own voice. Runs entirely on your phone.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Younger Voice">
+<meta name="apple-mobile-web-app-title" content="Fledgling">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f3efe8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16141a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3efe8" media="(prefers-color-scheme: light)" id="tcLight">
+<meta name="theme-color" content="#16141a" media="(prefers-color-scheme: dark)" id="tcDark">
 <style>
 /* Layout: one narrow column, like a pocket recorder: take, age dial, playback, speed log. */
 :root {
@@ -25,6 +26,7 @@
   --rec: #d6402e;       /* REC lamp */
   --young: #1f7a6d;     /* younger: fresh teal */
   --old: #a4651b;       /* older: patina amber */
+  --now: #2f8f3e;       /* original-age contour: green */
   --accent: var(--young);
   --display: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
   --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
@@ -34,12 +36,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #16141a; --panel: #211e26; --ink: #f1ece6; --muted: #a39aa6; --line: #34303a;
-    --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; color-scheme: dark;
+    --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; --now: #5fcf6e; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #16141a; --panel: #211e26; --ink: #f1ece6; --muted: #a39aa6; --line: #34303a;
-  --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; color-scheme: dark;
+  --rec: #f0604c; --young: #4cc2ae; --old: #e0a050; --now: #5fcf6e; color-scheme: dark;
 }
 :root.older { --accent: var(--old); }
 * { box-sizing: border-box; }
@@ -55,7 +57,7 @@ main {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h1 { font: 700 1.7rem/1.1 var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .tag { font: 600 0.72rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 section { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
@@ -114,7 +116,89 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 .pad .ax-x { top: 6px; right: 8px; }
 .pad .dot { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--accent); border: 3px solid var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,.3); pointer-events: none; }
 .pad + .scale { margin-top: 6px; }
-.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.pad .unl { fill: var(--ink); opacity: .07; }
+.pad .bandedge { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; }
+.pad .iso { fill: none; stroke-width: 1.5; opacity: .85; }
+.pad .iso.y { stroke: var(--young); } .pad .iso.o { stroke: var(--old); }
+.pad .iso.z { stroke: var(--now); stroke-width: 4; opacity: 1; }
+.pad .isolab { font: 600 10px var(--mono); fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+.pad .isolab.now { fill: var(--now); font-size: 11px; font-weight: 700; }
+.padage { margin: -4px 0 0; font: 600 .9rem var(--body); color: var(--accent); font-variant-numeric: tabular-nums; }
+#ageGuess { margin-top: -4px; }
+.linkbtn { white-space: nowrap; border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+
+/* themes: data-theme on <html>. light/dark = bright/dark; the rest are seasonal palettes */
+:root { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%231f7a6d'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23a4651b'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%234cc2ae'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23e0a050'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); } }
+:root[data-theme="dark"] { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%234cc2ae'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23e0a050'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="spring"] { --bg: #f3f6ec; --panel: #fffffa; --ink: #1f2a1d; --muted: #66705f; --line: #dfe6d3; --rec: #d6402e; --young: #b5476e; --old: #8a6d1c; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2818 14%29' fill='%23f2a7bf'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3Cg transform='translate%2862 10%29' fill='%23f7c6d6'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3Cg transform='translate%28100 17%29' fill='%23e98aaa'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="summer"] { --bg: #fff5e1; --panel: #fffdf6; --ink: #23201a; --muted: #74685a; --line: #efdcb8; --rec: #d6402e; --young: #0a7fa8; --old: #c45a1a; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2820 12%29' stroke='%23f2a72b' stroke-width='2' stroke-linecap='round'%3E%3Ccircle r='5' fill='%23f2a72b'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%280%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%2845%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%2890%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28135%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28180%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28225%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28270%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28315%29'/%3E%3C/g%3E%3Cpath d='M0 24 q15 -8 30 0 t30 0 t30 0 t30 0' fill='none' stroke='%233fa7c9' stroke-width='2'/%3E%3C/svg%3E"); }
+:root[data-theme="fall"] { --bg: #f6ebdf; --panel: #fffaf3; --ink: #2a1d14; --muted: #7a6656; --line: #e8d5c1; --rec: #c23a24; --young: #b4521f; --old: #6f4b2a; --now: #3f7f2e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cpath transform='translate%2816 14%29 rotate%2830%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23c8582a' stroke='%23c8582a' stroke-width='1'/%3E%3Cpath transform='translate%2854 12%29 rotate%28-20%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23e0a133' stroke='%23e0a133' stroke-width='1'/%3E%3Cpath transform='translate%2892 15%29 rotate%2860%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%239a3f1f' stroke='%239a3f1f' stroke-width='1'/%3E%3C/svg%3E"); }
+:root[data-theme="winter"] { --bg: #e8eff6; --panel: #fbfdff; --ink: #172331; --muted: #5c6d7e; --line: #d1dde9; --rec: #cf3b30; --young: #2a6fb0; --old: #7a5a8c; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2816 12%29' stroke='%237fa9cf' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate%2858 16%29' stroke='%23a9c7e2' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate%2898 10%29' stroke='%237fa9cf' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="thanksgiving"] { --bg: #f2e5d2; --panel: #fff9f0; --ink: #2d1e12; --muted: #7b634e; --line: #e3cfb3; --rec: #c23a24; --young: #a8461b; --old: #6b5a2a; --now: #4a7a2a; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2818 12%29' fill='%23c99a3c'%3E%3Crect x='-0.8' y='-2' width='1.6' height='14'/%3E%3Cellipse cx='-2.5' cy='-4' rx='2' ry='3.6' transform='rotate%28-25 -2.5 -4%29'/%3E%3Cellipse cx='2.5' cy='-4' rx='2' ry='3.6' transform='rotate%2825 2.5 -4%29'/%3E%3Cellipse cx='-2.5' cy='1' rx='2' ry='3.6' transform='rotate%28-25 -2.5 1%29'/%3E%3Cellipse cx='2.5' cy='1' rx='2' ry='3.6' transform='rotate%2825 2.5 1%29'/%3E%3Cellipse cx='0' cy='-8' rx='2' ry='3.6' transform='rotate%280 0 -8%29'/%3E%3C/g%3E%3Cpath transform='translate%2856 14%29 rotate%2820%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23b4521f' stroke='%23b4521f' stroke-width='1'/%3E%3Cg transform='translate%2894 12%29' fill='%23c99a3c'%3E%3Crect x='-0.8' y='-2' width='1.6' height='14'/%3E%3Cellipse cx='-2.5' cy='-4' rx='2' ry='3.6' transform='rotate%28-25 -2.5 -4%29'/%3E%3Cellipse cx='2.5' cy='-4' rx='2' ry='3.6' transform='rotate%2825 2.5 -4%29'/%3E%3Cellipse cx='-2.5' cy='1' rx='2' ry='3.6' transform='rotate%28-25 -2.5 1%29'/%3E%3Cellipse cx='2.5' cy='1' rx='2' ry='3.6' transform='rotate%2825 2.5 1%29'/%3E%3Cellipse cx='0' cy='-8' rx='2' ry='3.6' transform='rotate%280 0 -8%29'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="christmas"] { --bg: #10261c; --panel: #183627; --ink: #f6efe3; --muted: #b6c6b9; --line: #2b4f3d; --rec: #ff6a5c; --young: #ef5a4e; --old: #e6b84f; --now: #7fe08a; color-scheme: dark; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2816 16%29'%3E%3Cline x1='0' y1='-14' x2='0' y2='-6' stroke='%23c9b37a' stroke-width='1'/%3E%3Crect x='-2' y='-7' width='4' height='3' fill='%23c9b37a'/%3E%3Ccircle r='6' fill='%23d6372e'/%3E%3Ccircle cx='-2' cy='-2' r='1.6' fill='%23fff' opacity='.6'/%3E%3C/g%3E%3Cg transform='translate%2858 14%29'%3E%3Cpath d='M-12 0 q4 -6 10 -2 q-2 6 -10 2z M12 0 q-4 -6 -10 -2 q2 6 10 2z' fill='%232f7a46'/%3E%3Ccircle cx='-2' cy='2' r='2.4' fill='%23d6372e'/%3E%3Ccircle cx='2' cy='3' r='2.4' fill='%23d6372e'/%3E%3C/g%3E%3Cg transform='translate%2898 16%29'%3E%3Cline x1='0' y1='-14' x2='0' y2='-6' stroke='%23c9b37a' stroke-width='1'/%3E%3Crect x='-2' y='-7' width='4' height='3' fill='%23c9b37a'/%3E%3Ccircle r='6' fill='%23e0b34a'/%3E%3Ccircle cx='-2' cy='-2' r='1.6' fill='%23fff' opacity='.6'/%3E%3C/g%3E%3C/svg%3E"); }
+.deco { height: 28px; background: var(--deco) repeat-x left center / auto 28px; opacity: .9; margin-bottom: -6px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { gap: 4px; }
+.brand .bird { width: 84px; height: 70px; flex: none; margin: -14px 0 -6px -6px; color: var(--accent); overflow: visible; }
+.brand .bird .notes g { animation: note 2.4s ease-in-out infinite; transform-box: fill-box; }
+.brand .bird .notes g:nth-child(2) { animation-delay: .6s; }
+@keyframes note { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(-3px); opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .brand .bird .notes g { animation: none; } }
+:root[data-theme="dark"] .brand .bird, :root[data-theme="christmas"] .brand .bird { filter: drop-shadow(0 0 1px rgba(255,255,255,.55)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .brand .bird { filter: drop-shadow(0 0 1px rgba(255,255,255,.55)); } }
+.pickers { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+/* research opt-in */
+.research { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.research .check { color: var(--ink); font-weight: 600; }
+.rs-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: .84rem; color: var(--muted); }
+.rs-list li { padding-left: 22px; position: relative; }
+.rs-list li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.rs-list .yes::before { content: "✓"; color: var(--now); }
+.rs-list .no::before { content: "✕"; color: var(--rec); }
+
+/* simplified layout + info pop-ups */
+.h2row { display: flex; align-items: center; gap: 8px; }
+.h2row .check { flex: 1; }
+.lab { display: inline-flex; align-items: center; gap: 6px; }
+.info { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; color: var(--muted);
+  font: italic 700 12px/1 Georgia, "Times New Roman", serif; display: inline-grid; place-items: center; padding: 0; cursor: pointer; vertical-align: middle; }
+.info[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.pop { position: absolute; z-index: 20; max-width: min(320px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; font-size: .86rem; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.under { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; }
+.under .padage { margin: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: .84rem; color: var(--muted); }
+.note { margin: -4px 0 0; font-size: .85rem; color: var(--accent); font-weight: 600; min-height: 1.2em; }
+.more { border-top: 1px solid var(--line); padding-top: 6px; }
+.more > summary { cursor: pointer; color: var(--muted); font-size: .92rem; padding: 6px 0; }
+.more-body { display: grid; gap: 14px; padding-top: 8px; }
+.more-body .research { border-top: 0; padding-top: 0; }
+.speed h3 { font: 650 .78rem var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+.cue output { white-space: nowrap; }
+
+/* review-before-send dialog */
+dialog#review { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--ink); padding: 0; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 48px); }
+dialog#review::backdrop { background: rgba(0,0,0,.45); }
+.rv { display: grid; gap: 10px; padding: 16px; }
+.rv h2 { font: 700 1.15rem var(--display); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.rv-sum { font-size: .88rem; }
+.rv-table { max-height: 40vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.rv-table table { font-size: .82rem; }
+.rv-table th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 650; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.rv-table td { padding: 6px 8px; font-family: var(--body); text-align: left; }
+.rv-table td:last-child { text-align: right; }
+.rv-play { white-space: nowrap; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 3px 8px; cursor: pointer; font-size: .8rem; }
+.rv pre { max-height: 30vh; overflow: auto; font: .7rem/1.4 var(--mono); background: var(--bg); padding: 8px; border-radius: 8px; white-space: pre; }
+.rv-actions { justify-content: flex-end; }
+
+/* language picker */
+.lang { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px 4px 10px; }
+.lang-ico { font: 700 .78rem var(--body); color: var(--accent); }
+.lang select { border: 0; background: transparent; color: var(--ink); font: 600 .88rem var(--body); padding: 2px 0; cursor: pointer; }
+header .tag { flex-basis: 100%; }
 
 /* players */
 .player { display: grid; gap: 6px; }
@@ -142,25 +226,47 @@ footer a { color: inherit; }
 </head>
 <body>
 <main>
+  <div class="deco" aria-hidden="true"></div>
   <header>
-    <h1>Younger Voice</h1>
-    <span class="tag" id="offlineTag">On this phone · no upload</span>
+    <div class="brand"><svg class="bird" viewBox="0 0 120 100" aria-hidden="true">
+  <path d="M6 88 C40 82 80 84 116 78" stroke="#5a3e2b" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M20 84 q6 -6 12 -2 q-6 4 -12 2z" fill="#6aa84f"/>
+  <path d="M30 62 L6 78 L12 82 L36 70 Z" fill="#2a1c13"/>
+  <ellipse cx="50" cy="62" rx="27" ry="20" fill="#5b3d2a" transform="rotate(-18 50 62)"/>
+  <path d="M30 62 C37 47 57 46 66 54 C59 66 45 71 30 62 Z" fill="#2a1c13"/>
+  <path d="M37 60 C41 56 47 56 51 58 C47 62 41 63 37 60 Z" fill="#f4efe6"/>
+  <path d="M54 48 C61 43 71 46 73 54 C68 62 57 63 52 57 Z" fill="#1a1411"/>
+  <circle cx="70" cy="34" r="17" fill="#1a1411"/>
+  <path d="M73 28 C78 25 85 27 86 33 C83 37 77 37 73 34 Z" fill="#f2c230"/>
+  <circle cx="79" cy="31" r="2.6" fill="#1a1411"/><circle cx="79.8" cy="30.3" r=".9" fill="#fff"/>
+  <path d="M85 33 L103 28 L88 37 Z" fill="#f2c230"/>
+  <path d="M86 38 L101 39 L86 41 Z" fill="#e2a91c"/>
+  <path d="M48 80 L46 86 M55 80 L55 86" stroke="#f2c230" stroke-width="2.6" stroke-linecap="round"/>
+  <g class="notes" fill="currentColor">
+    <g><ellipse cx="104" cy="16" rx="3.6" ry="2.7" transform="rotate(-20 104 16)"/><rect x="106.4" y="4" width="1.5" height="12"/></g>
+    <g><ellipse cx="114" cy="24" rx="3" ry="2.3" transform="rotate(-20 114 24)"/><rect x="116" y="14" width="1.3" height="10"/></g>
+  </g>
+</svg><h1 data-i18n="appName">Fledgling</h1></div>
+    <div class="pickers">
+      <label class="lang" for="langSel"><span class="lang-ico" aria-hidden="true">文A</span><select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
+      <label class="lang" for="themeSel"><svg class="lang-ico" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 1a6 6 0 0 1 0 12z" fill="currentColor"/></svg><select id="themeSel" data-i18n-aria="themeLabel" aria-label="Theme"></select></label>
+    </div>
   </header>
 
   <section aria-labelledby="takeH">
-    <h2 id="takeH">1 · Sing a few lines</h2>
+    <div class="h2row"><h2 id="takeH" data-i18n="takeH">1 · Sing a few lines</h2><button class="info" type="button" data-info="info_rec" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></div>
     <div class="rec-row">
-      <button id="recBtn" aria-label="Start recording"><span class="dot"></span></button>
+      <button id="recBtn" data-i18n-aria="recStart" aria-label="Start recording"><span class="dot"></span></button>
       <div class="rec-meta">
-        <div id="timer">0:00 <small>/ 1:30 max</small></div>
+        <div id="timer">0:00 <small data-i18n="timerMax">/ 1:30 max</small></div>
         <div class="meter" aria-hidden="true"><i id="level"></i></div>
-        <p class="hint" id="recHint">A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
+        <p class="hint" id="recHint" data-i18n="recHint" hidden>A cappella, in a quiet room. Hold the phone about 20 cm away.</p>
       </div>
     </div>
     <div class="row">
-      <label class="filebtn" for="fileIn">Or open a recording…</label>
+      <label class="filebtn" for="fileIn" data-i18n="openFile">Or open a recording…</label>
       <input type="file" id="fileIn" accept="audio/*,.m4a,.wav,.mp3,.aac">
-      <label class="check"><input type="checkbox" id="nsBox"> Phone noise reduction</label>
+      <button class="linkbtn" id="sampleBtn" data-i18n="sample">Try a sample voice</button>
     </div>
     <div class="progress" id="prog" hidden>
       <p class="hint" id="progText">Reading your voice…</p>
@@ -170,67 +276,96 @@ footer a { color: inherit; }
   </section>
 
   <section aria-labelledby="ageH">
-    <h2 id="ageH">2 · Choose the age</h2>
-    <div class="seg" role="group" aria-label="Direction">
-      <button id="dirYoung" aria-pressed="true">Younger</button>
-      <button id="dirOld" aria-pressed="false">Older</button>
+    <h2 id="ageH" data-i18n="ageH">2 · Choose the age</h2>
+    <div class="seg" role="group" data-i18n-aria="direction" aria-label="Direction">
+      <button id="dirYoung" aria-pressed="true" data-i18n="younger">Younger</button>
+      <button id="dirOld" aria-pressed="false" data-i18n="older">Older</button>
     </div>
     <div>
-      <div class="slider-head"><label for="pad">Pitch × formant</label><output id="padOut">+0.0 st · +5%</output></div>
-      <div class="pad" id="pad" role="slider" tabindex="0" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
+      <div class="slider-head"><span class="lab"><label for="pad" data-i18n="padLabel">Pitch × formant</label><button class="info" type="button" data-info="info_pad" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></span><output id="padOut">+0.0 st · +5%</output></div>
+      <div class="pad" id="pad" role="slider" tabindex="0" data-i18n-aria="padAria" aria-label="Pitch and formant. Left and right arrows change formant, up and down change pitch.">
         <svg id="padGrid" aria-hidden="true"></svg>
-        <span class="ax ax-y">Pitch ↑</span>
-        <span class="ax ax-x">Formant →</span>
+        <span class="ax ax-y" data-i18n="padY">Pitch ↑</span>
+        <span class="ax ax-x" data-i18n="padX">Formant →</span>
         <i class="dot" id="padDot"></i>
       </div>
-      <div class="scale"><span id="padHint">Drag the dot. Shaded box: a likely 20s.</span><button class="linkbtn" id="padReset">Reset</button></div>
+      <div class="under"><p class="padage" id="padAge" aria-live="polite"></p><button class="linkbtn" id="padReset" data-i18n="reset">Reset</button></div>
+      <p class="chip" id="ageGuessRow" hidden><span id="ageGuess"></span><button class="info" type="button" data-info="info_age" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></p>
     </div>
     <div>
-      <div class="slider-head"><label for="strength">Texture strength</label><output id="strengthOut">0.60</output></div>
+      <div class="slider-head"><span class="lab"><label for="strength" data-i18n="texture">Texture strength</label><button class="info" type="button" data-info="info_texture" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></span><output id="strengthOut">0.60</output></div>
       <input type="range" id="strength" min="0" max="1.5" step="0.05" value="0.6">
-      <div class="scale"><span>none</span><span>vibrato, breath, brightness</span><span>strong</span></div>
+      <p class="note" id="texNote" aria-live="polite"></p>
     </div>
     <details>
-      <summary>Fine-tune each cue</summary>
+      <summary><span data-i18n="cuesSummary">Fine-tune each cue</span> <button class="info" type="button" data-info="info_cues" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></summary>
       <div class="cues" id="cues"></div>
     </details>
   </section>
 
   <section aria-labelledby="listenH">
-    <h2 id="listenH">3 · Listen</h2>
+    <h2 id="listenH" data-i18n="listenH">3 · Listen</h2>
     <div class="player">
-      <div class="player-head"><b>Your take</b><span class="hint" id="origLen"></span></div>
+      <div class="player-head"><b data-i18n="yourTake">Your take</b><span class="hint" id="origLen"></span></div>
       <audio id="origAudio" controls preload="auto"></audio>
     </div>
     <div class="player">
-      <div class="player-head"><b id="fxLabel">Younger · 0.60</b><span class="hint" id="fxState">Record or open a take first</span></div>
+      <div class="player-head"><b id="fxLabel">Younger · 0.60</b><span class="hint" id="fxState" data-i18n="fxIdle">Record or open a take first</span></div>
       <audio id="fxAudio" controls preload="auto"></audio>
     </div>
     <div class="row">
-      <button class="btn primary" id="shareBtn" disabled>Save or share</button>
-      <button class="btn" id="sampleBtn">Try a sample voice</button>
+      <button class="btn primary" id="shareBtn" disabled data-i18n="share">Save or share</button>
     </div>
   </section>
 
-  <section aria-labelledby="speedH">
-    <h2 id="speedH">Speed on this device</h2>
+
+  <details class="more" id="more">
+    <summary data-i18n="more">More</summary>
+    <div class="more-body">
+      <label class="check"><input type="checkbox" id="nsBox"> <span data-i18n="noise">Phone noise reduction</span></label>
+    <div class="research" id="research">
+      <div class="h2row"><label class="check"><input type="checkbox" id="rsBox"> <span data-i18n="rsShare">Keep a research log of my tries</span></label><button class="info" type="button" data-info="info_research" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></div>
+      <ul class="rs-list">
+        <li class="yes" data-i18n="rsYes"></li>
+        <li class="no" data-i18n="rsNo"></li>
+      </ul>
+      <div class="row"><button class="btn" id="rsSendBtn" data-i18n="rsSend">Send research log</button><button class="linkbtn" id="rsDelBtn" data-i18n="rsDelete">Delete log</button></div>
+      <p class="hint"><span id="rsCount"></span> · <span id="rsId"></span></p>
+      <p class="hint" id="rsState" aria-live="polite"></p>
+    </div>
+  <div class="speed">
+    <h3 id="speedH" data-i18n="speedH">Speed on this device</h3>
     <table>
       <tbody>
-        <tr><td>Length of take</td><td id="sLen">–</td></tr>
-        <tr><td>Reading the voice (once per take)</td><td id="sAna">–</td></tr>
-        <tr><td>Applying the age effect</td><td id="sFx">–</td></tr>
-        <tr><td>Total, as a share of take length</td><td id="sRt">–</td></tr>
+        <tr><td data-i18n="sLen">Length of take</td><td id="sLen">–</td></tr>
+        <tr><td data-i18n="sAna">Reading the voice (once per take)</td><td id="sAna">–</td></tr>
+        <tr><td data-i18n="sFx">Applying the age effect</td><td id="sFx">–</td></tr>
+        <tr><td data-i18n="sRt">Total, as a share of take length</td><td id="sRt">–</td></tr>
       </tbody>
     </table>
-    <div class="row"><button class="btn" id="copyBtn">Copy speed report</button><span class="hint" id="copyNote"></span></div>
-  </section>
-
+    <div class="row"><button class="btn" id="copyBtn" data-i18n="copy">Copy speed report</button><span class="hint" id="copyNote"></span></div>
+  </div>
   <footer>
-    <p>Proof of concept. Everything runs in this browser; your recordings never leave the phone. After the first visit it works in airplane mode.</p>
-    <p>Built on the WORLD vocoder © M. Morise (modified BSD licence). Sample voice: MTG sms-tools-materials, CC BY 4.0.</p>
+    <p id="foot1" data-i18n="foot1">Proof of concept. Everything runs in this browser; your recordings never leave the phone. After the first visit it works in airplane mode.</p>
+    <p data-i18n="foot2">Built on the WORLD vocoder © M. Morise (modified BSD licence). Sample voice: MTG sms-tools-materials, CC BY 4.0.</p>
     <p id="ver"></p>
   </footer>
+    </div>
+  </details>
 </main>
+<dialog id="review" aria-labelledby="rvTitle">
+  <form method="dialog" class="rv">
+    <h2 id="rvTitle" data-i18n="rvTitle">Check before sending</h2>
+    <p class="hint" data-i18n="rvIntro"></p>
+    <p class="rv-sum"><span id="rvFiles"></span><br><span id="rvId"></span></p>
+    <div class="rv-table"><table><thead><tr><th data-i18n="rvTime"></th><th data-i18n="rvSettings"></th><th data-i18n="rvAge"></th><th></th></tr></thead><tbody id="rvRows"></tbody></table></div>
+    <details><summary data-i18n="rvShowCsv"></summary><pre id="rvCsv"></pre></details>
+    <audio id="rvAudio" hidden></audio>
+    <div class="row rv-actions"><button class="btn" value="cancel" data-i18n="rvCancel">Cancel</button><button class="btn primary" value="ok" id="rvOk" data-i18n="rvOk">Looks fine, send it</button></div>
+  </form>
+</dialog>
+<script src="i18n.js"></script>
+<script src="research.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -52,7 +52,16 @@ async function analyse({ pcm, sr }) {
     postMessage({ type: 'progress', stage: 'analyse', done: end / x.length });
   }
   job = { x, sr, chunks };
-  return { ms: performance.now() - t0, chunks: chunks.length };
+  // voice features for the age guess, averaged over chunks weighted by voiced frames
+  const acc = { f0med: 0, shimmer: 0, tilt: 0 }; let wsum = 0;
+  for (const c of chunks) {
+    const ft = VC.voiceFeatures(c.f0, Float64Array.from(c.sp), Float64Array.from(c.ap), c.nb, sr);
+    if (!ft) continue;
+    let w = 0; for (const v of c.f0) if (v > 0) w++;
+    for (const k in acc) acc[k] += ft[k] * w; wsum += w;
+  }
+  const ft = wsum ? { f0med: acc.f0med / wsum, shimmer: acc.shimmer / wsum, tilt: acc.tilt / wsum } : null;
+  return { ms: performance.now() - t0, chunks: chunks.length, f0med: ft ? ft.f0med : 0, age: VC.guessAge(ft) };
 }
 
 function render({ strength, direction, cues }) {
