@@ -175,7 +175,9 @@ function ageDelta(f, p) {
 }
 const ageText = (d) => (Math.abs(d) < 1 ? t('sameAge') : t(d < 0 ? 'yrsYounger' : 'yrsOlder', { n: Math.round(Math.abs(d)) }))
   + (state.age ? ' · ' + t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : '');
-function showAgeGuess() { $('ageGuessRow').hidden = !state.age; if (state.age) $('ageGuess').textContent = t('ageChip', { a: state.age }); }
+// Shown as a range: the guess is off by about 6 years on average (more on voices unlike the 12 clips it was fit to).
+const ageRange = (a) => `${Math.max(15, Math.floor((a - 7) / 5) * 5)}–${Math.ceil((a + 7) / 5) * 5}`;
+function showAgeGuess() { $('ageGuessRow').hidden = !state.age; if (state.age) $('ageGuess').textContent = t('ageChip', { a: ageRange(state.age) }); }
 const LEVELS = [-40, -30, -20, -10, 0, 10, 20];
 // Likely band: in real voices pitch and formants shift together with age (shorter vocal tract, smaller folds).
 // Outside it (high pitch with low formants, or low pitch with high formants) tends to sound unnatural.
