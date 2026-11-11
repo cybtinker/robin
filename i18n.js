@@ -84,6 +84,7 @@ const STR = {
     pvFoot: 'Preview of the proof of concept. The voice processing runs in this browser; your recording is not uploaded. The installable version adds recording and offline use.',
     pvOpen: 'Open a recording',
     themeLabel: 'Theme',
+    th_season: "By date",
     th_auto: 'Automatic',
     th_bright: 'Bright',
     th_dark: 'Dark',
@@ -95,7 +96,7 @@ const STR = {
     th_christmas: 'Christmas',
     rsFail: 'Could not share this try: {e}',
     rsShare: 'Keep a research log of my tries',
-    rsYes: 'Kept: your original recording, each version you make, its settings, the age estimate, the app language and a random ID made on this phone.',
+    rsYes: 'Kept: your original recording, each version you make, its settings, the age estimate and the age you typed, the app language and a random ID made on this phone.',
     rsNo: 'Not kept: your name, email, IP address, location or file names. Nothing is uploaded. It leaves the phone only when you tap "Send research log".',
     rsSent: 'Added to the research log',
     rsFail: 'Could not add this try to the log: {e}',
@@ -107,13 +108,13 @@ const STR = {
     rsId: 'Your random ID: {id}',
     more: 'More',
     infoLabel: 'What is this?',
-    ageChip: 'Your take sounds about {a}',
+    ageChip: "My guess: {a}. A wild guess that could be wrong.",
     yrUnit: 'yrs',
     texNote: '{x} from texture',
     info_rec: 'Sing a cappella for 10–60 seconds in a quiet room. Everything is processed on this phone; nothing is uploaded.',
     info_pad: 'Up raises the pitch (the note). Right shortens the vocal tract (the formants), so vowels sound brighter, like a younger throat. The lines show rough ages; the thick green line is your age now. Grey corners are unusual mixes that may sound unnatural.',
     info_texture: 'Younger voices have steadier vibrato, less roughness and breath, and a brighter tone. This slider sets how much of that to add.',
-    info_age: 'A rough, unscientific guess from how your loudness flutters and how bright your voice is, based on a dozen rated clips. It can be off by 10 years or more.',
+    info_age: "The guess comes from how your loudness flutters and how bright your voice is, fit to a dozen rated clips. It can be off by 10 years or more, and it can’t hear what people tell you, like “you sound young”. Type your own answer and the app uses that instead. It stays on this phone.",
     info_cues: 'Each cue is one part of the texture. 1× is the default, 0 turns it off, 2× doubles it. The years show what that cue adds on its own.',
     info_research: 'Optional and off by default. Saves your tries on this phone so you can send them to the researcher.',
     rvTitle: 'Check before sending',
@@ -128,6 +129,13 @@ const STR = {
     rvOk: 'Looks fine, send it',
     rvCancel: 'Cancel',
     rvOriginal: 'original',
+    rsAudio: "Include my voice recordings",
+    rsYesNoAudio: "Kept: the settings of each version you make, the age estimate and the age you typed, the app language and a random ID made on this phone. No voice recordings.",
+    rsDelAudio: "Remove my audio",
+    rsAudioDeleted: "Your voice recordings were removed from this phone. The numbers in the log are kept.",
+    rvNoAudio: "log.csv only, no audio",
+    selfQ: "How old do you think you sound?",
+    selfNote: "Your answer sets the green line. If you keep a research log, it also helps improve my guess later.",
   },
 
   ko: {
@@ -206,6 +214,7 @@ const STR = {
     pvFoot: '개념 증명 미리보기입니다. 음성 처리는 이 브라우저에서 이루어지며 녹음은 업로드되지 않습니다. 설치형 버전에서는 녹음과 오프라인 사용이 가능합니다.',
     pvOpen: '녹음 파일 열기',
     themeLabel: '테마',
+    th_season: "날짜에 맞춤",
     th_auto: '자동',
     th_bright: '밝게',
     th_dark: '어둡게',
@@ -217,7 +226,7 @@ const STR = {
     th_christmas: '크리스마스',
     rsFail: '이번 시도를 공유하지 못했습니다: {e}',
     rsShare: '내 시도를 연구 기록으로 남기기',
-    rsYes: '저장됨: 원본 녹음, 만든 각 버전과 그 설정값, 추정 나이, 앱 언어, 이 휴대폰에서 만든 무작위 ID.',
+    rsYes: '저장됨: 원본 녹음, 만든 각 버전과 그 설정값, 추정 나이와 입력한 나이, 앱 언어, 이 휴대폰에서 만든 무작위 ID.',
     rsNo: '저장 안 됨: 이름, 이메일, IP 주소, 위치, 파일 이름. 아무것도 업로드되지 않으며, "연구 기록 보내기"를 누를 때만 휴대폰 밖으로 나갑니다.',
     rsSent: '연구 기록에 추가됨',
     rsFail: '이번 시도를 기록에 추가하지 못했습니다: {e}',
@@ -229,13 +238,13 @@ const STR = {
     rsId: '내 무작위 ID: {id}',
     more: '더 보기',
     infoLabel: '설명 보기',
-    ageChip: '이 녹음은 약 {a}세로 들립니다',
+    ageChip: "제 추측: {a}세. 틀릴 수 있는 막연한 추측입니다.",
     yrUnit: '년',
     texNote: '음색으로 {x}',
     info_rec: '조용한 방에서 반주 없이 10~60초 불러 주세요. 모든 처리는 이 휴대폰에서 이루어지며 아무것도 업로드되지 않습니다.',
     info_pad: '위로 올리면 음높이(음)가 올라갑니다. 오른쪽으로 가면 성도(포먼트)가 짧아져 모음이 더 밝게, 젊은 목처럼 들립니다. 선은 대략적인 나이이고, 굵은 녹색 선이 지금 나이입니다. 회색 모서리는 부자연스럽게 들릴 수 있는 조합입니다.',
     info_texture: '젊은 목소리는 비브라토가 더 안정적이고, 거칠거나 숨이 새는 소리가 적고, 음색이 더 밝습니다. 이 슬라이더로 그 정도를 정합니다.',
-    info_age: '음량 떨림과 목소리의 밝기로 짐작한 대략적이고 비과학적인 추정이며, 평가된 클립 십여 개를 바탕으로 합니다. 10년 이상 틀릴 수 있습니다.',
+    info_age: "음량 떨림과 목소리의 밝기를 평가된 클립 십여 개에 맞춰 추측한 값입니다. 10년 이상 틀릴 수 있고, \"목소리가 어려 보인다\" 같은 주변의 평가는 반영하지 못합니다. 직접 입력하면 그 나이를 대신 사용하며, 이 휴대폰에만 저장됩니다.",
     info_cues: '각 요소는 음색의 한 부분입니다. 1×가 기본, 0은 끔, 2×는 두 배입니다. 옆의 햇수는 그 요소만의 효과입니다.',
     info_research: '선택 사항이며 기본값은 꺼짐입니다. 시도한 내용을 이 휴대폰에 저장해 연구자에게 보낼 수 있게 합니다.',
     rvTitle: '보내기 전에 확인하세요',
@@ -250,6 +259,13 @@ const STR = {
     rvOk: '확인했습니다, 보내기',
     rvCancel: '취소',
     rvOriginal: '원본',
+    rsAudio: "내 목소리 녹음 포함",
+    rsYesNoAudio: "저장: 만든 버전마다의 설정, 나이 추정치와 입력한 나이, 앱 언어, 이 휴대폰에서 만든 무작위 ID. 목소리 녹음은 저장하지 않습니다.",
+    rsDelAudio: "내 오디오 삭제",
+    rsAudioDeleted: "이 휴대폰에서 목소리 녹음을 삭제했습니다. 기록의 숫자는 남아 있습니다.",
+    rvNoAudio: "log.csv만, 오디오 없음",
+    selfQ: "본인 목소리는 몇 살처럼 들린다고 생각하세요?",
+    selfNote: "입력한 나이가 초록색 선이 됩니다. 연구 기록을 켜 두면 나중에 추측을 개선하는 데도 도움이 됩니다.",
   },
 
   ja: {
@@ -328,6 +344,7 @@ const STR = {
     pvFoot: '概念実証のプレビューです。音声処理はこのブラウザ内で行われ、録音はアップロードされません。インストール版では録音とオフライン利用ができます。',
     pvOpen: '録音ファイルを開く',
     themeLabel: 'テーマ',
+    th_season: "日付に合わせる",
     th_auto: '自動',
     th_bright: 'ライト',
     th_dark: 'ダーク',
@@ -339,7 +356,7 @@ const STR = {
     th_christmas: 'クリスマス',
     rsFail: 'この試行を共有できませんでした：{e}',
     rsShare: '試した内容を研究用ログに残す',
-    rsYes: '保存されるもの：元の録音、作成した各バージョンとその設定、推定年齢、アプリの言語、このスマホで作られたランダムなID。',
+    rsYes: '保存されるもの：元の録音、作成した各バージョンとその設定、推定年齢と入力した年齢、アプリの言語、このスマホで作られたランダムなID。',
     rsNo: '保存されないもの：名前、メールアドレス、IPアドレス、位置情報、ファイル名。何もアップロードされず、「研究ログを送る」をタップしたときだけスマホの外に出ます。',
     rsSent: '研究ログに追加しました',
     rsFail: 'この試行をログに追加できませんでした：{e}',
@@ -351,13 +368,13 @@ const STR = {
     rsId: 'あなたのランダムID：{id}',
     more: 'その他',
     infoLabel: '説明を見る',
-    ageChip: 'この録音は約{a}歳に聞こえます',
+    ageChip: "私の推測：{a}歳。外れるかもしれない大まかな推測です。",
     yrUnit: '歳',
     texNote: '質感で{x}',
     info_rec: '静かな部屋で伴奏なしに10〜60秒歌ってください。処理はすべてこのスマホ内で行われ、何もアップロードされません。',
     info_pad: '上に動かすとピッチ（音の高さ）が上がります。右に動かすと声道（フォルマント）が短くなり、母音が明るく、若い喉のように聞こえます。線はおおよその年齢で、太い緑の線が今の年齢です。灰色の角は不自然に聞こえやすい組み合わせです。',
     info_texture: '若い声はビブラートが安定し、かすれや息の音が少なく、音色が明るい傾向があります。このスライダーでその度合いを決めます。',
-    info_age: '音量の揺れと声の明るさから推測した、大まかで非科学的な値です。評価済みの十数本のクリップが基になっています。10歳以上ずれることもあります。',
+    info_age: "音量の揺れと声の明るさを、評価済みの十数本のクリップに当てはめた推測です。10歳以上ずれることがあり、「声が若いね」といった周りの評価は分かりません。自分で入力すると、その年齢を代わりに使います。この端末にだけ保存されます。",
     info_cues: '各要素は質感の一部です。1×が標準、0でオフ、2×で2倍です。年数はその要素だけの効果です。',
     info_research: '任意で、初期設定はオフです。試した内容をこのスマホに保存し、研究者に送れるようにします。',
     rvTitle: '送る前に確認してください',
@@ -372,6 +389,13 @@ const STR = {
     rvOk: '問題ないので送る',
     rvCancel: 'キャンセル',
     rvOriginal: '元の録音',
+    rsAudio: "自分の歌声の録音を含める",
+    rsYesNoAudio: "保存するもの：作った各バージョンの設定、推定年齢と入力した年齢、アプリの言語、この端末で作ったランダムID。声の録音は保存しません。",
+    rsDelAudio: "自分の音声を削除",
+    rsAudioDeleted: "この端末から声の録音を削除しました。ログの数値は残っています。",
+    rvNoAudio: "log.csv のみ、音声なし",
+    selfQ: "自分の声は何歳くらいに聞こえると思いますか？",
+    selfNote: "入力した年齢が緑の線になります。研究ログをオンにしていれば、今後の推測の改善にも役立ちます。",
   },
 
   zh: {
@@ -450,6 +474,7 @@ const STR = {
     pvFoot: '概念验证预览。声音处理在此浏览器中完成，录音不会上传。安装版支持录音和离线使用。',
     pvOpen: '打开录音文件',
     themeLabel: '主题',
+    th_season: "按日期",
     th_auto: '自动',
     th_bright: '明亮',
     th_dark: '深色',
@@ -461,7 +486,7 @@ const STR = {
     th_christmas: '圣诞节',
     rsFail: '无法分享这次尝试：{e}',
     rsShare: '把我的尝试记入研究日志',
-    rsYes: '会保存：原始录音、你生成的每个版本及其设置、年龄估计、应用语言，以及本机生成的随机 ID。',
+    rsYes: '会保存：原始录音、你生成的每个版本及其设置、年龄估计和你填写的年龄、应用语言，以及本机生成的随机 ID。',
     rsNo: '不会保存：姓名、邮箱、IP 地址、位置或文件名。不会上传任何内容，只有点"发送研究日志"时才会离开手机。',
     rsSent: '已加入研究日志',
     rsFail: '无法把这次尝试加入日志：{e}',
@@ -473,13 +498,13 @@ const STR = {
     rsId: '你的随机 ID：{id}',
     more: '更多',
     infoLabel: '查看说明',
-    ageChip: '这段录音听起来大约 {a} 岁',
+    ageChip: "我的猜测：{a} 岁。这只是粗略猜测，可能不准。",
     yrUnit: '岁',
     texNote: '质感带来{x}',
     info_rec: '在安静的房间里清唱 10–60 秒。所有处理都在本机完成，不会上传任何内容。',
     info_pad: '往上提高音高（音符）。往右缩短声道（共振峰），元音会更明亮，像更年轻的嗓子。线条是大致年龄，粗绿线是你现在的年龄。灰色角落是可能听起来不自然的组合。',
     info_texture: '年轻的声音颤音更稳、沙哑和气声更少、音色更亮。这个滑块决定加入多少这样的特征。',
-    info_age: '根据音量抖动和声音明亮度做的粗略、不科学的猜测，基于十几段评分过的片段。可能相差 10 岁以上。',
+    info_age: "这个猜测来自音量抖动和声音明亮度，依据十几段评分过的片段。可能相差 10 岁以上，也听不出别人对你说的“你声音很年轻”。自己填写后，应用会改用你的答案。只保存在本机。",
     info_cues: '每一项都是质感的一部分。1× 为默认，0 为关闭，2× 为加倍。旁边的岁数是该项单独的效果。',
     info_research: '可选，默认关闭。把你的尝试保存在本机，方便发给研究者。',
     rvTitle: '发送前请确认',
@@ -494,6 +519,13 @@ const STR = {
     rvOk: '没问题，发送',
     rvCancel: '取消',
     rvOriginal: '原始录音',
+    rsAudio: "包含我的声音录音",
+    rsYesNoAudio: "保留：你生成的每个版本的设置、年龄估计和你填写的年龄、应用语言，以及在本机生成的随机 ID。不保留声音录音。",
+    rsDelAudio: "删除我的音频",
+    rsAudioDeleted: "已从本机删除你的声音录音。日志中的数值仍保留。",
+    rvNoAudio: "仅 log.csv，无音频",
+    selfQ: "你觉得自己的声音听起来几岁？",
+    selfNote: "你填的年龄会成为绿色线。如果开启研究记录，它也能帮助以后改进我的猜测。",
   },
 
   fr: {
@@ -572,6 +604,7 @@ const STR = {
     pvFoot: 'Aperçu de la preuve de concept. Le traitement de la voix se fait dans ce navigateur ; votre enregistrement n’est pas envoyé. La version installable ajoute l’enregistrement et l’usage hors ligne.',
     pvOpen: 'Ouvrir un enregistrement',
     themeLabel: 'Thème',
+    th_season: "Selon la date",
     th_auto: 'Automatique',
     th_bright: 'Clair',
     th_dark: 'Sombre',
@@ -583,7 +616,7 @@ const STR = {
     th_christmas: 'Noël',
     rsFail: 'Impossible de partager cet essai : {e}',
     rsShare: 'Tenir un journal de recherche de mes essais',
-    rsYes: 'Conservé : votre enregistrement original, chaque version créée et ses réglages, l’âge estimé, la langue de l’app et un identifiant aléatoire créé sur ce téléphone.',
+    rsYes: 'Conservé : votre enregistrement original, chaque version créée et ses réglages, l’âge estimé et l’âge que vous avez saisi, la langue de l’app et un identifiant aléatoire créé sur ce téléphone.',
     rsNo: 'Non conservé : nom, e-mail, adresse IP, position ou noms de fichiers. Rien n’est envoyé ; les données ne quittent le téléphone que si vous touchez « Envoyer le journal ».',
     rsSent: 'Ajouté au journal de recherche',
     rsFail: 'Impossible d’ajouter cet essai au journal : {e}',
@@ -595,13 +628,13 @@ const STR = {
     rsId: 'Votre identifiant aléatoire : {id}',
     more: 'Plus',
     infoLabel: 'Explication',
-    ageChip: 'Votre prise sonne comme environ {a} ans',
+    ageChip: "Mon estimation : {a} ans. Une supposition qui peut être fausse.",
     yrUnit: 'ans',
     texNote: '{x} grâce au timbre',
     info_rec: 'Chantez a cappella 10 à 60 secondes dans une pièce calme. Tout est traité sur ce téléphone ; rien n’est envoyé.',
     info_pad: 'Vers le haut, la hauteur (la note) monte. Vers la droite, le conduit vocal (les formants) raccourcit : les voyelles sonnent plus claires, comme une gorge plus jeune. Les lignes indiquent des âges approximatifs ; la ligne verte épaisse est votre âge actuel. Les coins gris sont des mélanges inhabituels qui peuvent sonner peu naturels.',
     info_texture: 'Les voix jeunes ont un vibrato plus régulier, moins de raucité et de souffle, et un timbre plus brillant. Ce curseur règle la quantité ajoutée.',
-    info_age: 'Une estimation grossière et non scientifique, tirée des variations de volume et de la brillance de votre voix, à partir d’une douzaine d’extraits notés. Elle peut se tromper de 10 ans ou plus.',
+    info_age: "L’estimation vient des variations de volume et de la brillance de votre voix, ajustées sur une douzaine d’extraits notés. Elle peut se tromper de 10 ans ou plus et ne sait pas ce qu’on vous dit, comme « tu as une voix jeune ». Saisissez votre propre réponse et l’app l’utilisera à la place. Elle reste sur ce téléphone.",
     info_cues: 'Chaque indice est une partie du timbre. 1× par défaut, 0 le coupe, 2× le double. Les années montrent l’effet de cet indice seul.',
     info_research: 'Facultatif et désactivé par défaut. Conserve vos essais sur ce téléphone pour que vous puissiez les envoyer au chercheur.',
     rvTitle: 'Vérifiez avant d’envoyer',
@@ -616,6 +649,13 @@ const STR = {
     rvOk: 'C’est bon, envoyer',
     rvCancel: 'Annuler',
     rvOriginal: 'original',
+    rsAudio: "Inclure mes enregistrements de voix",
+    rsYesNoAudio: "Conservé : les réglages de chaque version créée, l’âge estimé et l’âge que vous avez saisi, la langue de l’app et un identifiant aléatoire créé sur ce téléphone. Aucun enregistrement de voix.",
+    rsDelAudio: "Supprimer mon audio",
+    rsAudioDeleted: "Vos enregistrements de voix ont été supprimés de ce téléphone. Les chiffres du journal sont conservés.",
+    rvNoAudio: "log.csv seulement, sans audio",
+    selfQ: "Quel âge pensez-vous que votre voix fait ?",
+    selfNote: "Votre réponse fixe la ligne verte. Si vous tenez un journal de recherche, elle aide aussi à améliorer mon estimation plus tard.",
   },
 
   es: {
@@ -694,6 +734,7 @@ const STR = {
     pvFoot: 'Vista previa de la prueba de concepto. El procesamiento de la voz se hace en este navegador; tu grabación no se sube. La versión instalable añade la grabación y el uso sin conexión.',
     pvOpen: 'Abrir una grabación',
     themeLabel: 'Tema',
+    th_season: "Según la fecha",
     th_auto: 'Automático',
     th_bright: 'Claro',
     th_dark: 'Oscuro',
@@ -705,7 +746,7 @@ const STR = {
     th_christmas: 'Navidad',
     rsFail: 'No se pudo compartir este intento: {e}',
     rsShare: 'Guardar un registro de investigación de mis intentos',
-    rsYes: 'Se guarda: tu grabación original, cada versión que hagas y sus ajustes, la edad estimada, el idioma de la app y un ID aleatorio creado en este teléfono.',
+    rsYes: 'Se guarda: tu grabación original, cada versión que hagas y sus ajustes, la edad estimada y la edad que escribiste, el idioma de la app y un ID aleatorio creado en este teléfono.',
     rsNo: 'No se guarda: tu nombre, correo, dirección IP, ubicación ni nombres de archivo. No se sube nada; solo sale del teléfono si tocas «Enviar registro».',
     rsSent: 'Añadido al registro de investigación',
     rsFail: 'No se pudo añadir este intento al registro: {e}',
@@ -717,13 +758,13 @@ const STR = {
     rsId: 'Tu ID aleatorio: {id}',
     more: 'Más',
     infoLabel: 'Ver explicación',
-    ageChip: 'Tu toma suena a unos {a} años',
+    ageChip: "Mi estimación: {a} años. Una suposición que puede estar equivocada.",
     yrUnit: 'años',
     texNote: '{x} por la textura',
     info_rec: 'Canta a cappella entre 10 y 60 segundos en una habitación tranquila. Todo se procesa en este teléfono; no se sube nada.',
     info_pad: 'Hacia arriba sube el tono (la nota). Hacia la derecha se acorta el tracto vocal (los formantes): las vocales suenan más brillantes, como una garganta más joven. Las líneas indican edades aproximadas; la línea verde gruesa es tu edad actual. Las esquinas grises son combinaciones poco comunes que pueden sonar poco naturales.',
     info_texture: 'Las voces jóvenes tienen un vibrato más estable, menos aspereza y aire, y un tono más brillante. Este control fija cuánto de eso se añade.',
-    info_age: 'Una estimación aproximada y poco científica a partir de la fluctuación del volumen y el brillo de tu voz, basada en una docena de clips valorados. Puede fallar por 10 años o más.',
+    info_age: "La estimación sale de la fluctuación del volumen y el brillo de tu voz, ajustada a una docena de clips valorados. Puede fallar por 10 años o más y no sabe lo que te dicen otros, como «tienes voz joven». Escribe tu propia respuesta y la app la usará en su lugar. Se queda en este teléfono.",
     info_cues: 'Cada rasgo es una parte de la textura. 1× es el valor normal, 0 lo apaga y 2× lo duplica. Los años muestran el efecto de ese rasgo por sí solo.',
     info_research: 'Opcional y desactivado por defecto. Guarda tus intentos en este teléfono para que puedas enviarlos al investigador.',
     rvTitle: 'Revisa antes de enviar',
@@ -738,18 +779,26 @@ const STR = {
     rvOk: 'Está bien, enviar',
     rvCancel: 'Cancelar',
     rvOriginal: 'original',
+    rsAudio: "Incluir mis grabaciones de voz",
+    rsYesNoAudio: "Se guarda: los ajustes de cada versión que creas, la edad estimada y la edad que escribiste, el idioma de la app y un ID aleatorio creado en este teléfono. Sin grabaciones de voz.",
+    rsDelAudio: "Borrar mi audio",
+    rsAudioDeleted: "Se borraron tus grabaciones de voz de este teléfono. Los números del registro se conservan.",
+    rvNoAudio: "solo log.csv, sin audio",
+    selfQ: "¿Cuántos años crees que suena tu voz?",
+    selfNote: "Tu respuesta marca la línea verde. Si llevas un registro de investigación, también ayuda a mejorar mi estimación más adelante.",
   },
 };
 
 let LANG = 'en';
-function pickLang() {
-  try { const s = localStorage.getItem('yv-lang'); if (s && STR[s]) return s; } catch (e) {}
+function savedLang() { try { const s = localStorage.getItem('yv-lang'); return s && STR[s] ? s : null; } catch (e) { return null; } }
+function deviceLang() { // the phone's or browser's own language order, first one we have
   for (const l of navigator.languages || [navigator.language || 'en']) {
     const k = String(l).toLowerCase().slice(0, 2);
     if (STR[k]) return k;
   }
   return 'en';
 }
+const pickLang = () => savedLang() || deviceLang();
 function t(key, vars) {
   let s = (STR[LANG] && STR[LANG][key]) ?? STR.en[key] ?? key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
@@ -762,9 +811,9 @@ function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
   root.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
 }
-function setLang(l) {
-  LANG = STR[l] ? l : 'en';
-  try { localStorage.setItem('yv-lang', LANG); } catch (e) {}
+function setLang(l) { // 'auto' follows the device language again
+  if (l === 'auto') { try { localStorage.removeItem('yv-lang'); } catch (e) {} LANG = deviceLang(); }
+  else { LANG = STR[l] ? l : 'en'; try { localStorage.setItem('yv-lang', LANG); } catch (e) {} }
   applyI18n();
 }
 LANG = pickLang();
