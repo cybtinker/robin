@@ -1,4 +1,4 @@
-/* Younger Voice core: WORLD vocoder (WebAssembly) + rule-based age transform.
+/* Fledgling core: WORLD vocoder (WebAssembly) + rule-based age transform.
  * Line-by-line port of rejuvenate.py v2 (step 2 desktop prototype).
  * WORLD (c) M. Morise, modified BSD licence. This file: project code.
  */

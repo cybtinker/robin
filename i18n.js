@@ -1,4 +1,4 @@
-/* Younger Voice: interface text in six languages.
+/* Fledgling: interface text in six languages.
  * Keys are used by data-i18n attributes in index.html and by t() in app.js.
  * {name} placeholders are filled in by t(key, { name: value }).
  */
@@ -9,7 +9,7 @@ const LANGS = [
 
 const STR = {
   en: {
-    appName: 'Younger Voice',
+    appName: 'Fledgling',
     langLabel: 'Language',
     tag: 'On this phone · no upload',
     takeH: '1 · Sing a few lines',
@@ -108,7 +108,7 @@ const STR = {
   },
 
   ko: {
-    appName: '젊은 목소리',
+    appName: 'Fledgling',
     langLabel: '언어',
     tag: '휴대폰에서 처리 · 업로드 없음',
     takeH: '1 · 몇 소절 불러 보세요',
@@ -207,7 +207,7 @@ const STR = {
   },
 
   ja: {
-    appName: '若返りボイス',
+    appName: 'Fledgling',
     langLabel: '言語',
     tag: 'この端末で処理 · アップロードなし',
     takeH: '1 · 数フレーズ歌ってください',
@@ -306,7 +306,7 @@ const STR = {
   },
 
   zh: {
-    appName: '年轻声音',
+    appName: 'Fledgling',
     langLabel: '语言',
     tag: '在本机处理 · 不上传',
     takeH: '1 · 唱几句',
@@ -405,7 +405,7 @@ const STR = {
   },
 
   fr: {
-    appName: 'Voix plus jeune',
+    appName: 'Fledgling',
     langLabel: 'Langue',
     tag: 'Sur ce téléphone · aucun envoi',
     takeH: '1 · Chantez quelques phrases',
@@ -504,7 +504,7 @@ const STR = {
   },
 
   es: {
-    appName: 'Voz más joven',
+    appName: 'Fledgling',
     langLabel: 'Idioma',
     tag: 'En este teléfono · sin subir nada',
     takeH: '1 · Canta unas frases',

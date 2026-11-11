@@ -1,6 +1,6 @@
-/* Younger Voice PoC: UI, recording, playback. Heavy work runs in worker.js. */
+/* Fledgling PoC: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-4';
+const VERSION = 'poc-5';
 const MAX_S = 90;
 const $ = (id) => document.getElementById(id);
 
@@ -322,7 +322,7 @@ $('sampleBtn').onclick = async () => {
 // ------------------------------------------------------------ share / report
 $('shareBtn').onclick = async () => {
   if (!state.fxBlob) return;
-  const name = `younger-voice-${state.direction}-p${Math.round(state.pitch * 100)}c-f${Math.round(state.formant * 10) / 10}pct-t${Math.round(state.strength * 100)}.wav`;
+  const name = `fledgling-${state.direction}-p${Math.round(state.pitch * 100)}c-f${Math.round(state.formant * 10) / 10}pct-t${Math.round(state.strength * 100)}.wav`;
   const file = new File([state.fxBlob], name, { type: 'audio/wav' });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
@@ -332,7 +332,7 @@ $('shareBtn').onclick = async () => {
 function report() {
   const t = state.timings, dur = state.take ? state.take.pcm.length / state.take.sr : 0;
   return [
-    `Younger Voice ${VERSION} speed report`,
+    `Fledgling ${VERSION} speed report`,
     `Device: ${navigator.userAgent}`,
     `Cores: ${navigator.hardwareConcurrency || '?'}`,
     `Take: ${dur.toFixed(1)} s at ${state.take ? state.take.sr : '?'} Hz (${state.take ? state.take.label : 'none'}), ${t.chunks || 0} chunk(s)`,
@@ -393,7 +393,7 @@ $('rsSendBtn').onclick = async () => {
   try {
     const { blob, rows } = await Research.exportZip();
     if (!rows) { $('rsState').textContent = t('rsEmpty'); return; }
-    const name = `younger-voice-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
+    const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
     const file = new File([blob], name, { type: 'application/zip' });
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } }
     catch (e) { if (e.name === 'AbortError') return; }

@@ -1,4 +1,6 @@
-# Younger Voice — on-device proof of concept (step 3)
+# Fledgling — on-device proof of concept (step 3)
+
+(Called Younger Voice until poc-4; renamed Fledgling on 2026-11-11.)
 
 A web app (PWA) that records a cappella singing, applies the step 2 younger/older effect,
 and plays it back. Everything runs on the phone: the WORLD vocoder is compiled to
