@@ -54,3 +54,4 @@ Read the voice in parallel workers (one per chunk); DIO instead of Harvest for p
 - Research log: "Include my voice recordings" on/off (in More and on the check-before-sending screen). Off = no audio is saved or sent, only the numbers in log.csv. "Remove my audio" deletes stored recordings and keeps the numbers.
 - Language: new "Automatic" choice (the default) follows the phone/browser language; picking a language pins it.
 - Theme: new "By date" choice (the default) picks spring/summer/fall/winter, Thanksgiving week or Christmas (Dec 1–26) from today's date.
+- Age: the app now asks "How old do you think you sound?" (kept on the phone, `yv-self-age`). The answer sets the green line; the app's own guess is shown as a range with a disclaimer and used only when no answer is given. The research CSV gains a `self_rated_age` column so the guess can be refit later.

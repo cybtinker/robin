@@ -84,7 +84,7 @@ async function loadTake(pcm, sr, label) {
     const r = await call('analyse', { pcm: Float32Array.from(pcm), sr });
     state.timings = { analyse: r.ms, analyseWall: performance.now() - t0, chunks: r.chunks };
     $('sAna').textContent = fmtS(r.ms);
-    state.f0med = r.f0med || 0; state.age = r.age ? Math.round(r.age) : null; showAgeGuess();
+    state.f0med = r.f0med || 0; state.guess = r.age ? Math.round(r.age) : null; useAge(); showAgeGuess();
     Research.newTake(pcm, sr, { age: r.age ? +r.age.toFixed(1) : null, f0med: r.f0med, lang: LANG, version: VERSION,
       source: label === 'recording' || label === 'sample' ? label : 'file' }, wavBlob); /* file names are never sent */
     drawPadGrid(); setPad(state.pitch, state.formant);
@@ -119,7 +119,7 @@ async function render() {
       const d = ageDelta(state.formant, state.pitch);
       Research.logTry(r.pcm, state.take.sr, { direction: state.direction, pitch_st: state.pitch, formant_pct: state.formant,
         texture: state.strength, cues: { ...state.cues }, est_delta_years: +d.toFixed(1),
-        est_age: state.age ? +(state.age + d).toFixed(1) : null, lang: LANG })
+        est_age: state.age ? +(state.age + d).toFixed(1) : null, self_rated_age: selfAge ?? '', lang: LANG })
         .then(() => { $('rsState').textContent = t('rsSent'); showCount(); })
         .catch((e) => { $('rsState').textContent = t('rsFail', { e: e.message }); });
     }
@@ -177,7 +177,20 @@ const ageText = (d) => (Math.abs(d) < 1 ? t('sameAge') : t(d < 0 ? 'yrsYounger' 
   + (state.age ? ' · ' + t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : '');
 // Shown as a range: the guess is off by about 6 years on average (more on voices unlike the 12 clips it was fit to).
 const ageRange = (a) => `${Math.max(15, Math.floor((a - 7) / 5) * 5)}–${Math.ceil((a + 7) / 5) * 5}`;
-function showAgeGuess() { $('ageGuessRow').hidden = !state.age; if (state.age) $('ageGuess').textContent = t('ageChip', { a: ageRange(state.age) }); }
+// The tester's own answer ("how old do you think you sound?") wins over the app's guess; kept on this phone only.
+let selfAge = null;
+try { const v = +localStorage.getItem('yv-self-age'); if (v >= 10 && v <= 99) selfAge = v; } catch (e) {}
+function useAge() { state.age = selfAge || state.guess || null; }
+function showAgeGuess() {
+  $('ageGuessRow').hidden = !state.take;
+  $('selfAge').value = selfAge || ''; $('selfAge').placeholder = state.guess || '';
+  $('ageGuess').textContent = state.guess ? t('ageChip', { a: ageRange(state.guess) }) : '';
+}
+$('selfAge').addEventListener('change', () => {
+  const v = Math.round(+$('selfAge').value); selfAge = v >= 10 && v <= 99 ? v : null;
+  try { selfAge ? localStorage.setItem('yv-self-age', selfAge) : localStorage.removeItem('yv-self-age'); } catch (e) {}
+  useAge(); showAgeGuess(); drawPadGrid(); setPad(state.pitch, state.formant); $('fxLabel').textContent = labelFor();
+});
 const LEVELS = [-40, -30, -20, -10, 0, 10, 20];
 // Likely band: in real voices pitch and formants shift together with age (shorter vocal tract, smaller folds).
 // Outside it (high pitch with low formants, or low pitch with high formants) tends to sound unnatural.

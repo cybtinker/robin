@@ -46,7 +46,7 @@ const Research = (() => {
     if (withAudio) await saveTake();
     const id = uuid(), a = withAudio ? await to24k(pcm, sr) : null, m = take.meta;
     const row = { created_at: new Date().toISOString(), device_id: device, take_id: take.id, try_id: id,
-      original_age_guess: m.age, duration_s: +(take.pcm.length / take.sr).toFixed(2), f0_median: m.f0med ? Math.round(m.f0med) : '',
+      original_age_guess: m.age, self_rated_age: s.self_rated_age ?? '', duration_s: +(take.pcm.length / take.sr).toFixed(2), f0_median: m.f0med ? Math.round(m.f0med) : '',
       source: m.source, direction: s.direction, pitch_st: s.pitch_st, formant_pct: s.formant_pct, texture: s.texture,
       est_delta_years: s.est_delta_years, est_age: s.est_age, lang: s.lang, app_version: m.version,
       original_audio: a ? `audio/${take.id}/original.wav` : '', try_audio: a ? `audio/${take.id}/${id}.wav` : '', cues: JSON.stringify(s.cues) };

@@ -125,6 +125,11 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 .pad .isolab.now { fill: var(--now); font-size: 11px; font-weight: 700; }
 .padage { margin: -4px 0 0; font: 600 .9rem var(--body); color: var(--accent); font-variant-numeric: tabular-nums; }
 #ageGuess { margin-top: -4px; }
+.selfage { display: grid; gap: 4px; margin-top: 6px; }
+.selfq { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: .95rem; }
+.selfq input { width: 4.2em; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--ink); font: 600 1rem var(--body); }
+.selfage .chip { margin: 0; }
+.selfage .hint { margin: 0; font-size: .8rem; }
 .linkbtn { white-space: nowrap; border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
 
@@ -290,7 +295,12 @@ footer a { color: inherit; }
         <i class="dot" id="padDot"></i>
       </div>
       <div class="under"><p class="padage" id="padAge" aria-live="polite"></p><button class="linkbtn" id="padReset" data-i18n="reset">Reset</button></div>
-      <p class="chip" id="ageGuessRow" hidden><span id="ageGuess"></span><button class="info" type="button" data-info="info_age" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></p>
+      <div class="selfage" id="ageGuessRow" hidden>
+        <label class="selfq"><span data-i18n="selfQ">How old do you think you sound?</span>
+          <input type="number" id="selfAge" inputmode="numeric" min="10" max="99" step="1"></label>
+        <p class="chip"><span id="ageGuess"></span><button class="info" type="button" data-info="info_age" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></p>
+        <p class="hint" data-i18n="selfNote"></p>
+      </div>
     </div>
     <div>
       <div class="slider-head"><span class="lab"><label for="strength" data-i18n="texture">Texture strength</label><button class="info" type="button" data-info="info_texture" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></span><output id="strengthOut">0.60</output></div>
