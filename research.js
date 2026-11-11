@@ -1,6 +1,6 @@
 /* Opt-in research log, kept on this phone only. Nothing is uploaded.
  * Each take and each try (rendered version) is added to a CSV with a random ID made on this phone; the audio
- * (24 kHz mono WAV) is kept alongside unless the tester turns voice recordings off. "Send research log" puts log.csv + audio into one .zip and opens the
+ * (24 kHz mono WAV) is kept alongside. At send time the tester picks "Send" or "Send, no audio". "Send research log" puts log.csv + audio into one .zip and opens the
  * share sheet, so the tester can send it to the researcher by mail or chat. No name, email, IP or file names.
  */
 'use strict';
@@ -12,7 +12,6 @@ const Research = (() => {
   let device = store.get('yv-device');
   if (!device) { device = uuid(); store.set('yv-device', device); }
   let optedIn = store.get('yv-research') === '1';
-  let withAudio = store.get('yv-audio') !== '0'; // tester's choice: keep voice recordings, or numbers only
   let take = null;
 
   // ---- IndexedDB: rows (one per try) and audio blobs
@@ -41,23 +40,22 @@ const Research = (() => {
     })(); }
     return take.saved;
   }
+  // s: the try's settings, measurements, device info and timings (flat object; becomes CSV columns)
   async function logTry(pcm, sr, s) {
     if (!optedIn || !take) return null;
-    if (withAudio) await saveTake();
-    const id = uuid(), a = withAudio ? await to24k(pcm, sr) : null, m = take.meta;
+    await saveTake();
+    const id = uuid(), a = await to24k(pcm, sr), m = take.meta;
     const row = { created_at: new Date().toISOString(), device_id: device, take_id: take.id, try_id: id,
-      original_age_guess: m.age, self_rated_age: s.self_rated_age ?? '', duration_s: +(take.pcm.length / take.sr).toFixed(2), f0_median: m.f0med ? Math.round(m.f0med) : '',
-      source: m.source, direction: s.direction, pitch_st: s.pitch_st, formant_pct: s.formant_pct, texture: s.texture,
-      est_delta_years: s.est_delta_years, est_age: s.est_age, lang: s.lang, app_version: m.version,
-      original_audio: a ? `audio/${take.id}/original.wav` : '', try_audio: a ? `audio/${take.id}/${id}.wav` : '', cues: JSON.stringify(s.cues) };
-    await tx(['rows', 'audio'], 'readwrite', t => { t.objectStore('rows').put(row); if (a) t.objectStore('audio').put(take.wavOf(a.pcm, a.sr), `${take.id}/${id}.wav`); });
+      source: m.source, duration_s: +(take.pcm.length / take.sr).toFixed(2), ...m.features, ...s, app_version: m.version,
+      original_audio: `audio/${take.id}/original.wav`, try_audio: `audio/${take.id}/${id}.wav` };
+    await tx(['rows', 'audio'], 'readwrite', t => { t.objectStore('rows').put(row); t.objectStore('audio').put(take.wavOf(a.pcm, a.sr), `${take.id}/${id}.wav`); });
     return id;
   }
   const count = () => tx(['rows'], 'readonly', t => t.objectStore('rows').count()).catch(() => 0);
 
   function toCsv(rows) {
     if (!rows.length) return '';
-    const cols = Object.keys(rows[0]);
+    const cols = []; for (const r of rows) for (const k of Object.keys(r)) if (!cols.includes(k)) cols.push(k); // older rows may lack newer columns
     const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     return [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n') + '\n';
   }
@@ -87,7 +85,7 @@ const Research = (() => {
     return new Blob([...parts, ...central, e.buffer], { type: 'application/zip' });
   }
   // What would be sent: rows (audio columns blanked where no file is included) + the audio files, if the tester allows audio.
-  async function collect() {
+  async function collect(withAudio) {
     const rows = (await tx(['rows'], 'readonly', t => t.objectStore('rows').getAll())).sort((a, b) => a.created_at.localeCompare(b.created_at));
     const d = await db();
     const keys = withAudio ? await new Promise((res, rej) => { const r = d.transaction('audio').objectStore('audio').getAllKeys(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }) : [];
@@ -95,14 +93,14 @@ const Research = (() => {
     for (const r of rows) { if (!have.has(r.original_audio)) r.original_audio = ''; if (!have.has(r.try_audio)) r.try_audio = ''; }
     return { rows, keys };
   }
-  async function exportZip() {
-    const { rows, keys } = await collect();
+  async function exportZip(withAudio = true) {
+    const { rows, keys } = await collect(withAudio);
     const files = [{ name: 'log.csv', data: '\ufeff' + toCsv(rows) }];
     for (const k of keys) { const blob = await getAudio(k); if (blob) files.push({ name: `audio/${k}`, data: blob }); }
     return { blob: await zip(files), rows: rows.length };
   }
-  async function review() { // everything that would be sent, for the confirm screen
-    const { rows, keys } = await collect();
+  async function review(withAudio = true) { // everything that would be sent, for the confirm screen
+    const { rows, keys } = await collect(withAudio);
     let bytes = 0;
     for (const k of keys) { const b = await getAudio(k); bytes += b ? b.size : 0; }
     return { rows, files: keys.length, bytes, csv: toCsv(rows), keys: new Set(keys) };
@@ -111,6 +109,5 @@ const Research = (() => {
   const clearAudio = async () => { await tx(['audio'], 'readwrite', t => t.objectStore('audio').clear()); if (take) take.saved = null; };
   const clear = () => tx(['rows', 'audio'], 'readwrite', t => { t.objectStore('rows').clear(); t.objectStore('audio').clear(); });
   return { device, get optedIn() { return optedIn; }, setOptIn(v) { optedIn = !!v; store.set('yv-research', optedIn ? '1' : '0'); },
-    get withAudio() { return withAudio; }, setAudio(v) { withAudio = !!v; store.set('yv-audio', withAudio ? '1' : '0'); },
     newTake, logTry, count, exportZip, clear, clearAudio, review, getAudio, _toCsv: toCsv };
 })();

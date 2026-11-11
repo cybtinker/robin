@@ -1,7 +1,8 @@
-/* Fledgling PoC: UI, recording, playback. Heavy work runs in worker.js. */
+/* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-7';
-const MAX_S = 90;
+const VERSION = 'poc-8';
+const MAX_S = 90;        // longest take
+const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
 
 // ------------------------------------------------------------ worker RPC
@@ -22,30 +23,146 @@ const call = (cmd, args, transfer = []) => new Promise((resolve, reject) => {
 });
 call('warmup').catch(() => {});
 
+// ------------------------------------------------------------ small helpers
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const r1 = (v) => Math.round(v * 10) / 10;
+const sign = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
+const fmtS = (ms) => (ms / 1000).toFixed(1) + ' s';
+const fmtClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+let toastTimer = 0;
+function toast(msg, err) {
+  const el = $('toast'); clearTimeout(toastTimer);
+  if (!msg) { el.hidden = true; return; }
+  el.textContent = msg; el.classList.toggle('err', !!err); el.hidden = false;
+  toastTimer = setTimeout(() => { el.hidden = true; }, err ? 7000 : 3500);
+}
+function setStatus(text, sub = '') { $('singText').textContent = text; $('singSub').textContent = sub; }
+function idleStatus() {
+  if (state.take) setStatus(t('yourTake'), `${(state.take.pcm.length / state.take.sr).toFixed(1)} s` + (state.lastMs != null ? ' · ' + t('readyIn', { t: fmtS(state.lastMs) }) : ''));
+  else setStatus(t('singLine'));
+}
+function showProgress(frac) { $('prog').hidden = frac == null; $('progBar').style.width = Math.round((frac || 0) * 100) + '%'; }
+
+// ------------------------------------------------------------ age bands and data-based defaults
+// Common Voice medians per band (index 0 = men, 1 = women), from the age study (1,055 speakers, speech):
+// speaking pitch change from the 20s (st), pitch wobble SD (st), formant change (%), harmonics-to-noise (dB).
+const BANDS = ['b0', 'b1', 'b2', 'b3', 'b4', 'b5']; // Teens, 20s, 30s, 40s, 50s, 60+
+const BAND_EN = ['teens', '20s', '30s', '40s', '50s', '60plus']; // for the log and file names
+const DATA = {
+  pitch: [[0.2, 0, -0.5, -0.7, -1.1, -0.9], [0.4, 0, -1.9, -2.3, -2.4, -3.0]],
+  wob: [[3.44, 3.31, 3.76, 3.81, 3.96, 4.23], [3.47, 3.58, 3.86, 3.90, 3.98, 4.13]],
+  form: [[0, 0, 0, 0, 0, -0.5], [0, 0, 0, 0, 0, -2.3]],
+  hnr: [[9.4, 9.9, 9.1, 8.9, 8.6, 9.1], [12.5, 12.5, 11.2, 11.3, 12.3, 12.0]],
+};
+const METRICS = [
+  { id: 'pitch', min: -4, max: 4, step: 0.1, unit: ' st', tint: '#d9efe9', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
+  { id: 'wobble', min: -40, max: 40, step: 1, unit: ' %', tint: '#e6e9f7', icon: 'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0' },
+  { id: 'formant', min: -8, max: 12, step: 0.5, unit: ' %', tint: '#f7e9d6', icon: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0' },
+  { id: 'clarity', min: -4, max: 4, step: 0.1, unit: ' dB', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
+  { id: 'texture', min: 0, max: 1.5, step: 0.05, unit: '', tint: '#efe9dc', icon: 'M5 6h.01M10 6h.01M15 6h.01M19 6h.01M7 11h.01M12 11h.01M17 11h.01M5 16h.01M10 16h.01M15 16h.01M19 16h.01' },
+];
+const bandFrom = (k, d) => { const v = +store.get(k); return Number.isInteger(v) && v >= 0 && v <= 5 && store.get(k) != null ? v : d; };
+
 // ------------------------------------------------------------ state
-const state = { direction: 'younger', strength: 0.6, pitch: 0, formant: 5, f0med: 0, age: null, cues: {}, take: null, timings: {}, fxBlob: null, busy: false, queued: false };
+const state = {
+  age: bandFrom('yv-age-band', 4), target: bandFrom('yv-target-band', 1),
+  voice: store.get('yv-voice') || 'male', voicePicked: !!store.get('yv-voice'),
+  over: {}, cues: {}, old: null, feat: null,
+  take: null, timings: {}, fxBlob: null, busy: false, queued: false, lastMs: null,
+};
+const direction = () => (state.target > state.age ? 'older' : 'younger');
+// The "typical" slider values for the chosen ages. With an old recording of the user, their own pitch,
+// steadiness and clarity back then replace the averages (capped, since key and mic differ between recordings).
+function typical() {
+  const g = state.voice === 'female' ? 1 : 0, a = state.age, b = state.target;
+  const T = {
+    pitch: r1(DATA.pitch[g][b] - DATA.pitch[g][a]),
+    wobble: Math.round((DATA.wob[g][b] / DATA.wob[g][a] - 1) * 100),
+    formant: r1(DATA.form[g][b] - DATA.form[g][a]),
+    clarity: r1(DATA.hnr[g][b] - DATA.hnr[g][a]),
+    texture: a === b ? 0 : 0.6,
+  };
+  const o = state.old, f = state.feat;
+  if (o && f) {
+    if (o.f0med > 0 && f.f0med > 0) T.pitch = r1(clamp(12 * Math.log2(o.f0med / f.f0med), -3, 3));
+    if (o.wobble > 0 && f.wobble > 0) T.wobble = Math.round(clamp((o.wobble / f.wobble - 1) * 100, -40, 40));
+    if (o.hnr && f.hnr) T.clarity = r1(clamp(o.hnr - f.hnr, -3, 3));
+  }
+  return T;
+}
+const val = (k) => state.over[k] ?? typical()[k];
+// how much each measure changes between the chosen ages (Common Voice), 0-3 bars
+function impact(k) {
+  const v = Math.abs(typical()[k]); if (state.target === state.age) return 0;
+  if (k === 'pitch') return v >= 1.5 ? 3 : v >= 0.5 ? 2 : 1;
+  if (k === 'wobble') return v >= 15 ? 3 : v >= 7 ? 2 : 1;
+  if (k === 'formant') return v >= 1.5 ? 2 : 1;
+  if (k === 'clarity') return v >= 1 ? 2 : 1;
+  return 2;
+}
+const fmtVal = (m, v) => (m.id === 'texture' ? v.toFixed(2) : sign(v)) + m.unit;
+
+// ------------------------------------------------------------ build the controls
+const ageSel = $('ageSel'), targetSel = $('targetSel');
+function fillBands() {
+  for (const sel of [ageSel, targetSel]) {
+    const v = sel.value; sel.innerHTML = '';
+    BANDS.forEach((b, i) => { const o = document.createElement('option'); o.value = i; o.textContent = t(b); sel.appendChild(o); });
+    sel.value = v || '0';
+  }
+  ageSel.value = state.age; targetSel.value = state.target;
+}
+METRICS.forEach((m) => {
+  const row = document.createElement('div'); row.className = 'metric';
+  row.innerHTML = `<span class="ico" style="background:${m.tint}" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1a20" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${m.icon}"/></svg></span>`
+    + `<label for="m_${m.id}" data-i18n="m_${m.id}"></label>`
+    + `<svg class="imp" id="imp_${m.id}" width="14" height="14" viewBox="0 0 14 14" role="img"><title></title><rect x="1" y="9" width="3" height="4" rx="1"/><rect x="5.5" y="5" width="3" height="8" rx="1"/><rect x="10" y="1" width="3" height="12" rx="1"/></svg>`
+    + `<input type="range" id="m_${m.id}" min="${m.min}" max="${m.max}" step="${m.step}">`
+    + `<output id="o_${m.id}" for="m_${m.id}"></output>`
+    + `<button class="info" type="button" data-info="info_m_${m.id}" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>`;
+  $('metrics').appendChild(row);
+  const inp = row.querySelector('input');
+  inp.addEventListener('input', () => { state.over[m.id] = +inp.value; $(`o_${m.id}`).textContent = fmtVal(m, +inp.value); });
+  inp.addEventListener('change', render);
+});
+function showMetrics() {
+  METRICS.forEach((m) => {
+    const v = val(m.id), lv = impact(m.id);
+    $(`m_${m.id}`).value = v; $(`o_${m.id}`).textContent = fmtVal(m, v);
+    const imp = $(`imp_${m.id}`), lab = t('impact', { x: t('imp' + lv) });
+    imp.querySelectorAll('rect').forEach((r, i) => r.classList.toggle('on', lv > i));
+    imp.setAttribute('aria-label', lab); imp.querySelector('title').textContent = lab;
+  });
+  $('ageV').textContent = t(BANDS[state.age]); $('targetV').textContent = t(BANDS[state.target]);
+  $('vMale').setAttribute('aria-pressed', state.voice === 'male'); $('vFemale').setAttribute('aria-pressed', state.voice === 'female');
+  $('fxLabel').textContent = fxLabel();
+  document.documentElement.classList.toggle('older', direction() === 'older');
+}
+const fxLabel = () => state.target === state.age ? t('playResynth') : t(direction() === 'younger' ? 'playYounger' : 'playOlder', { b: t(BANDS[state.target]) });
+
+// fine-tune cues (Settings)
 const CUES = ['vibrato', 'jitter', 'shimmer', 'breath', 'tilt', 'clarity'];
 CUES.forEach((k) => {
   state.cues[k] = 1;
-  const d = document.createElement('label');
-  d.className = 'cue';
-  d.innerHTML = `<span data-i18n="cue_${k}">${t('cue_' + k)}</span><output id="cue_${k}_o">1.0×</output><input type="range" id="cue_${k}" min="0" max="2" step="0.1" value="1">`;
+  const d = document.createElement('label'); d.className = 'cue';
+  d.innerHTML = `<span data-i18n="cue_${k}"></span><output id="cue_${k}_o">1.0×</output><input type="range" id="cue_${k}" min="0" max="2" step="0.1" value="1">`;
   $('cues').appendChild(d);
   const inp = d.querySelector('input');
-  inp.addEventListener('input', () => { state.cues[k] = +inp.value; showNotes(); });
+  inp.addEventListener('input', () => { state.cues[k] = +inp.value; $(`cue_${k}_o`).textContent = `${(+inp.value).toFixed(1)}×`; });
   inp.addEventListener('change', render);
 });
 
-function setError(msg) { $('err').hidden = !msg; $('err').textContent = msg || ''; }
-function showProgress(text, frac) {
-  $('prog').hidden = frac == null;
-  if (text) $('progText').textContent = text;
-  $('progBar').style.width = Math.round((frac || 0) * 100) + '%';
-}
-const fmtS = (ms) => (ms / 1000).toFixed(1) + ' s';
-const fmtClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function changed(resetOver = true) { if (resetOver) state.over = {}; showMetrics(); render(); }
+ageSel.addEventListener('change', () => { state.age = +ageSel.value; store.set('yv-age-band', state.age); changed(); });
+targetSel.addEventListener('change', () => { state.target = +targetSel.value; store.set('yv-target-band', state.target); changed(); });
+function pickVoice(v) { state.voice = v; state.voicePicked = true; store.set('yv-voice', v); changed(); }
+$('vMale').onclick = () => pickVoice('male');
+$('vFemale').onclick = () => pickVoice('female');
+$('typicalBtn').onclick = () => changed();
 
-// ------------------------------------------------------------ WAV encode
+// ------------------------------------------------------------ WAV encode / audio
 function wavBlob(pcm, sr) {
   const n = pcm.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
   const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
@@ -57,324 +174,217 @@ function wavBlob(pcm, sr) {
   return new Blob([buf], { type: 'audio/wav' });
 }
 function setAudio(el, blob) {
+  el.pause();
   if (el.dataset.url) URL.revokeObjectURL(el.dataset.url);
   const u = URL.createObjectURL(blob); el.dataset.url = u; el.src = u; el.load();
 }
+// bottom bar: two play/pause buttons, one plays at a time
+const players = [['playOrig', 'origAudio'], ['playFx', 'fxAudio']];
+players.forEach(([b, a]) => {
+  const btn = $(b), au = $(a);
+  btn.onclick = () => {
+    if (!au.paused) { au.pause(); return; }
+    players.forEach(([, o]) => { if (o !== a) $(o).pause(); });
+    au.currentTime = au.ended ? 0 : au.currentTime; au.play().catch(() => {});
+  };
+  au.addEventListener('play', () => btn.classList.add('playing'));
+  ['pause', 'ended', 'emptied'].forEach(ev => au.addEventListener(ev, () => btn.classList.remove('playing')));
+});
 
 // ------------------------------------------------------------ pipeline
 async function loadTake(pcm, sr, label) {
   if (state.busy) return;
-  setError('');
+  toast('');
   const dur = pcm.length / sr;
-  if (dur < 1) return setError(t('errShort'));
-  if (dur > MAX_S) { pcm = pcm.slice(0, MAX_S * sr); setError(t('errCut', { s: MAX_S })); }
-  // normalise peak so quiet takes analyse well
-  let peak = 0; for (const v of pcm) peak = Math.max(peak, Math.abs(v));
+  if (dur < 1) return toast(t('errShort'), true);
+  if (dur > MAX_S) { pcm = pcm.slice(0, MAX_S * sr); toast(t('errCut', { s: MAX_S })); }
+  let peak = 0; for (const v of pcm) peak = Math.max(peak, Math.abs(v)); // normalise quiet takes
   if (peak > 0 && peak < 0.5) { const k = 0.5 / peak; pcm = pcm.map(v => v * k); }
-  state.take = { pcm, sr, label };
-  setAudio($('origAudio'), wavBlob(pcm, sr));
-  $('origLen').textContent = `${dur.toFixed(1)} s · ${sr / 1000} kHz`;
+  state.take = { pcm, sr, label }; state.lastMs = null;
+  setAudio($('origAudio'), wavBlob(pcm, sr)); $('playOrig').disabled = false;
   $('sLen').textContent = `${dur.toFixed(1)} s`;
   $('sAna').textContent = $('sFx').textContent = $('sRt').textContent = '–';
   state.busy = true; $('recBtn').disabled = true;
-  onProgress = (m) => showProgress(m.stage === 'analyse' ? t('reading') : t('applying'), m.done);
-  showProgress(t('reading'), 0.02);
+  onProgress = (m) => showProgress(m.done);
+  setStatus(t('reading')); showProgress(0.02);
   try {
-    const t0 = performance.now();
     const r = await call('analyse', { pcm: Float32Array.from(pcm), sr });
-    state.timings = { analyse: r.ms, analyseWall: performance.now() - t0, chunks: r.chunks };
+    state.timings = { analyse: r.ms, chunks: r.chunks };
     $('sAna').textContent = fmtS(r.ms);
-    state.f0med = r.f0med || 0; state.guess = r.age ? Math.round(r.age) : null; useAge(); showAgeGuess();
-    Research.newTake(pcm, sr, { age: r.age ? +r.age.toFixed(1) : null, f0med: r.f0med, lang: LANG, version: VERSION,
-      source: label === 'recording' || label === 'sample' ? label : 'file' }, wavBlob); /* file names are never sent */
-    drawPadGrid(); setPad(state.pitch, state.formant);
+    state.feat = { f0med: r.f0med || 0, wobble: r.wobble || 0, hnr: r.hnr || 0 };
+    if (!state.voicePicked && r.f0med) state.voice = r.f0med > 280 ? 'female' : 'male'; // singing; ~160 Hz for speech
+    Research.newTake(pcm, sr, { version: VERSION, source: label === 'recording' || label === 'sample' ? label : 'file', /* file names are never sent */
+      features: { f0_median: Math.round(r.f0med || 0), wobble_st: r1(r.wobble * 100) / 100, hnr_db: r1(r.hnr || 0), analyse_ms: Math.round(r.ms) } }, wavBlob);
   } catch (e) {
-    state.busy = false; $('recBtn').disabled = false; showProgress(null, null);
-    state.take = null;
-    return setError(t('errRead', { e: e.message }));
+    state.busy = false; $('recBtn').disabled = false; showProgress(null); state.take = null; idleStatus();
+    return toast(t('errRead', { e: e.message }), true);
   }
   state.busy = false; $('recBtn').disabled = false;
+  state.over = {}; showMetrics();
   render();
 }
 
 async function render() {
   if (!state.take) return;
   if (state.busy) { state.queued = true; return; }
-  state.busy = true; $('shareBtn').disabled = true;
-  const label = labelFor();
-  $('fxState').textContent = t('working');
-  showProgress(t('applying'), 0.05);
+  state.busy = true; $('shareBtn').disabled = true; $('playFx').disabled = true;
+  const v = { pitch: val('pitch'), wobble: val('wobble'), formant: val('formant'), clarity: val('clarity'), texture: val('texture') };
+  const dir = direction();
+  setStatus(t('applying')); onProgress = (m) => showProgress(m.done); showProgress(0.05);
   try {
-    const r = await call('render', { strength: state.strength, direction: state.direction, cues: { ...state.cues, pitch_cents: Math.round(state.pitch * 100), formant_pct: state.formant } });
-    state.timings.render = r.ms;
+    const r = await call('render', { strength: v.texture, direction: dir,
+      cues: { ...state.cues, pitch_cents: Math.round(v.pitch * 100), formant_pct: v.formant, wobble_pct: v.wobble, hnr_db: v.clarity } });
+    state.timings.render = r.ms; state.lastMs = r.ms;
     state.fxBlob = wavBlob(r.pcm, state.take.sr);
     setAudio($('fxAudio'), state.fxBlob);
-    $('fxLabel').textContent = label;
-    $('fxState').textContent = t('readyIn', { t: fmtS(r.ms) }); $('fxState').dataset.done = '1'; state.lastMs = r.ms;
-    $('shareBtn').disabled = false;
+    $('shareBtn').disabled = false; $('playFx').disabled = false;
     const dur = state.take.pcm.length / state.take.sr;
     $('sFx').textContent = fmtS(r.ms);
     $('sRt').textContent = `${((state.timings.analyse + r.ms) / 1000 / dur * 100).toFixed(0)} %`;
     if (Research.optedIn) {
-      const d = ageDelta(state.formant, state.pitch);
-      Research.logTry(r.pcm, state.take.sr, { direction: state.direction, pitch_st: state.pitch, formant_pct: state.formant,
-        texture: state.strength, cues: { ...state.cues }, est_delta_years: +d.toFixed(1),
-        est_age: state.age ? +(state.age + d).toFixed(1) : null, self_rated_age: selfAge ?? '', lang: LANG })
-        .then(() => { $('rsState').textContent = t('rsSent'); showCount(); })
-        .catch((e) => { $('rsState').textContent = t('rsFail', { e: e.message }); });
+      const T = typical();
+      Research.logTry(r.pcm, state.take.sr, {
+        voice: state.voice, age_band: BAND_EN[state.age], target_band: BAND_EN[state.target], direction: dir,
+        used_old_recording: state.old ? 'yes' : 'no', old_f0_median: state.old ? Math.round(state.old.f0med) : '',
+        old_wobble_st: state.old ? r1(state.old.wobble * 100) / 100 : '', old_hnr_db: state.old ? r1(state.old.hnr) : '',
+        pitch_st: v.pitch, steadiness_pct: v.wobble, formant_pct: v.formant, clarity_db: v.clarity, texture: v.texture,
+        typical_pitch_st: T.pitch, typical_steadiness_pct: T.wobble, typical_formant_pct: T.formant, typical_clarity_db: T.clarity,
+        changed_by_user: Object.keys(state.over).join(' '), cues: JSON.stringify(state.cues), lang: LANG,
+        effect_ms: Math.round(r.ms), ...DEVICE })
+        .then(showCount)
+        .catch((e) => toast(t('rsFail', { e: e.message }), true));
     }
   } catch (e) {
-    setError(t('errFx', { e: e.message }));
-    $('fxState').textContent = '';
+    toast(t('errFx', { e: e.message }), true);
   }
-  showProgress(null, null);
+  showProgress(null); idleStatus();
   state.busy = false;
   if (state.queued) { state.queued = false; render(); }
 }
-const sgn = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
-const padText = () => `${sgn(state.pitch, 1)} ${t('st')} · ${sgn(state.formant, 0)}%`;
-const labelFor = () => { const d = ageDelta(state.formant, state.pitch); return `${t(state.direction)} · ${state.age ? t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : yrs(d)}`; };
-
-// ------------------------------------------------------------ controls
-function setDirection(d) {
-  state.direction = d;
-  setPad(0, PAD_DEFAULT[d]); drawPadGrid(); showNotes();
-  $('dirYoung').setAttribute('aria-pressed', d === 'younger');
-  $('dirOld').setAttribute('aria-pressed', d === 'older');
-  document.documentElement.classList.toggle('older', d === 'older');
-  render();
-}
-// Pitch x formant pad: x = formant shift (%), y = pitch shift (semitones).
-// Both are absolute and independent of the texture strength slider.
-const PAD = { fMin: -8, fMax: 16, pMin: -2, pMax: 4 };
-const PAD_DEFAULT = { younger: 5, older: -4 }; // formant % that matches strength 0.6 of the old single dial
-// Rough age model (years; negative = younger). Not fitted to data: weights follow published voice-aging
-// trends, scaled so +8 % formant + full texture ≈ 22 years younger, as in the 2026-11-10 blind test.
-// Formant ≈ 1.4 yr per %, pitch ≈ 5 yr/st (male) or 7 yr/st (female) up to a knee, texture ≈ 11 yr at 1.0.
-const AGE_MODEL = { male: { kP: 5, knee: 1.5, kDown: 4 }, female: { kP: 7, knee: 2, kDown: 5 } };
-const K_FORMANT = 1.4, TEX_YOUNG = 11, TEX_OLD = 5;
-// share of the texture effect carried by each cue (sums to 1 at the default 1x)
-const CUE_W = { vibrato: 0.25, jitter: 0.15, shimmer: 0.15, breath: 0.15, tilt: 0.15, clarity: 0.15 };
-function texYears(only) { // years from texture (negative = younger); `only` = one cue's share
-  const keys = only ? [only] : Object.keys(CUE_W);
-  const w = keys.reduce((a, k) => a + CUE_W[k] * (state.cues[k] ?? 1), 0);
-  return (state.direction === 'younger' ? -TEX_YOUNG : TEX_OLD) * state.strength * w;
-}
-const yrs = (d) => `${d < 0 ? '−' : '+'}${Math.abs(d) < 0.5 ? 0 : Math.round(Math.abs(d))}${['ko', 'ja', 'zh'].includes(LANG) ? '' : ' '}${t('yrUnit')}`;
-function showNotes() {
-  const d = texYears();
-  $('texNote').textContent = t('texNote', { x: Math.abs(d) < 0.5 ? t('sameAge') : t(d < 0 ? 'yrsYounger' : 'yrsOlder', { n: Math.round(Math.abs(d)) }) });
-  CUES.forEach(k => { const o = $(`cue_${k}_o`); if (o) o.textContent = `${(state.cues[k] ?? 1).toFixed(1)}× · ${yrs(texYears(k))}`; });
-  if ($('padAge')) $('padAge').textContent = ageText(ageDelta(state.formant, state.pitch)) + (inBand(state.formant, state.pitch) ? '' : ' · ' + t('unlikely'));
-}
-function pitchYears(p, m) { return p >= 0 ? m.kP * Math.min(p, m.knee) + 0.25 * m.kP * Math.max(0, p - m.knee) : m.kDown * p; }
-function ageDelta(f, p) {
-  const m = AGE_MODEL[state.f0med > 280 ? 'female' : 'male'];
-  const tex = texYears();
-  return -(K_FORMANT * f + pitchYears(p, m)) + tex;
-}
-const ageText = (d) => (Math.abs(d) < 1 ? t('sameAge') : t(d < 0 ? 'yrsYounger' : 'yrsOlder', { n: Math.round(Math.abs(d)) }))
-  + (state.age ? ' · ' + t('ageAbout', { a: Math.round(Math.max(5, state.age + d)) }) : '');
-// Shown as a range: the guess is off by about 6 years on average (more on voices unlike the 12 clips it was fit to).
-const ageRange = (a) => `${Math.max(15, Math.floor((a - 7) / 5) * 5)}–${Math.ceil((a + 7) / 5) * 5}`;
-// The tester's own answer ("how old do you think you sound?") wins over the app's guess; kept on this phone only.
-let selfAge = null;
-try { const v = +localStorage.getItem('yv-self-age'); if (v >= 10 && v <= 99) selfAge = v; } catch (e) {}
-function useAge() { state.age = selfAge || state.guess || null; }
-function showAgeGuess() {
-  $('ageGuessRow').hidden = !state.take;
-  $('selfAge').value = selfAge || ''; $('selfAge').placeholder = state.guess || '';
-  $('ageGuess').textContent = state.guess ? t('ageChip', { a: ageRange(state.guess) }) : '';
-}
-$('selfAge').addEventListener('change', () => {
-  const v = Math.round(+$('selfAge').value); selfAge = v >= 10 && v <= 99 ? v : null;
-  try { selfAge ? localStorage.setItem('yv-self-age', selfAge) : localStorage.removeItem('yv-self-age'); } catch (e) {}
-  useAge(); showAgeGuess(); drawPadGrid(); setPad(state.pitch, state.formant); $('fxLabel').textContent = labelFor();
-});
-const LEVELS = [-40, -30, -20, -10, 0, 10, 20];
-// Likely band: in real voices pitch and formants shift together with age (shorter vocal tract, smaller folds).
-// Outside it (high pitch with low formants, or low pitch with high formants) tends to sound unnatural.
-const BAND = { slope: 0.2, half: 1.25 }; // centre: +0.2 st per 1 % formant; band ±1.25 st
-const inBand = (f, p) => Math.abs(p - BAND.slope * f) <= BAND.half;
-const padEl = $('pad'), dotEl = $('padDot');
-const fx = (f) => (f - PAD.fMin) / (PAD.fMax - PAD.fMin), py = (p) => 1 - (p - PAD.pMin) / (PAD.pMax - PAD.pMin);
-function drawPadGrid() {
-  const svg = $('padGrid'), W = padEl.clientWidth, H = padEl.clientHeight;
-  if (!W) return;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  let h = '';
-  { // shade the two unlikely corners, then dash the band edges
-    const up = (f) => BAND.slope * f + BAND.half, lo = (f) => BAND.slope * f - BAND.half;
-    const X = (f) => fx(f) * W, Y = (p) => py(Math.max(PAD.pMin, Math.min(PAD.pMax, p))) * H;
-    const fs = [PAD.fMin, PAD.fMax];
-    h += `<polygon class="unl" points="${X(fs[0])},${Y(PAD.pMax)} ${X(fs[1])},${Y(PAD.pMax)} ${X(fs[1])},${Y(up(fs[1]))} ${X(fs[0])},${Y(up(fs[0]))}"/>`;
-    h += `<polygon class="unl" points="${X(fs[0])},${Y(PAD.pMin)} ${X(fs[1])},${Y(PAD.pMin)} ${X(fs[1])},${Y(lo(fs[1]))} ${X(fs[0])},${Y(lo(fs[0]))}"/>`;
-    h += `<line class="bandedge" x1="${X(fs[0])}" y1="${Y(up(fs[0]))}" x2="${X(fs[1])}" y2="${Y(up(fs[1]))}"/>`;
-    h += `<line class="bandedge" x1="${X(fs[0])}" y1="${Y(lo(fs[0]))}" x2="${X(fs[1])}" y2="${Y(lo(fs[1]))}"/>`;
-  }
-  for (let f = PAD.fMin; f <= PAD.fMax; f += 4) {
-    const x = fx(f) * W; h += `<line class="${f ? 'gl' : 'g0'}" x1="${x}" x2="${x}" y1="0" y2="${H}"/>`;
-    if (f > PAD.fMin && f < PAD.fMax) h += `<text class="tick" x="${x + 3}" y="${H - 6}">${f > 0 ? '+' : ''}${f}%</text>`;
-  }
-  for (let p = PAD.pMin; p <= PAD.pMax; p += 1) {
-    const y = py(p) * H; h += `<line class="${p ? 'gl' : 'g0'}" x1="0" x2="${W}" y1="${y}" y2="${y}"/>`;
-    if (p > PAD.pMin && p < PAD.pMax) h += `<text class="tick" x="4" y="${y - 3}">${p > 0 ? '+' : ''}${p} ${t('st')}</text>`;
-  }
-  // age contours: ageDelta is monotone in formant, so solve for formant at each pitch
-  const m = AGE_MODEL[state.f0med > 280 ? 'female' : 'male'];
-  const tex = texYears();
-  LEVELS.forEach((L, li) => {
-    const pts = [];
-    for (let i = 0; i <= 60; i++) {
-      const p = PAD.pMin + i / 60 * (PAD.pMax - PAD.pMin);
-      const f = (tex - L - pitchYears(p, m)) / K_FORMANT;
-      if (f >= PAD.fMin && f <= PAD.fMax) pts.push([fx(f) * W, py(p) * H, p, f]);
-    }
-    if (pts.length < 2 || (state.age && state.age + L < 12)) return;
-    h += `<polyline class="iso ${L < 0 ? 'y' : L > 0 ? 'o' : 'z'}" points="${pts.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ')}"/>`;
-    // label each line where it crosses the middle of the likely band
-    const off = (q) => Math.abs(q[2] - BAND.slope * q[3]), q = pts.reduce((a, b) => (off(b) < off(a) ? b : a));
-    {
-      const x = Math.min(W - 14, Math.max(14, q[0]));
-      const txt = L === 0 ? (state.age ? `${t('ageNow')} ${state.age}` : t('ageNow'))
-        : state.age ? String(Math.max(5, state.age + L)) : `${L > 0 ? '+' : '−'}${Math.abs(L)}`;
-      h += `<text class="isolab${L === 0 ? ' now' : ''}" x="${x}" y="${q[1] + 4}" text-anchor="middle">${txt}</text>`;
-    }
-  });
-  svg.innerHTML = h;
-}
-function setPad(p, f) {
-  state.pitch = Math.round(Math.min(PAD.pMax, Math.max(PAD.pMin, p)) * 10) / 10;
-  state.formant = Math.round(Math.min(PAD.fMax, Math.max(PAD.fMin, f)) * 2) / 2;
-  dotEl.style.left = fx(state.formant) * 100 + '%';
-  dotEl.style.top = py(state.pitch) * 100 + '%';
-  $('padOut').textContent = padText();
-  $('padAge').textContent = ageText(ageDelta(state.formant, state.pitch)) + (inBand(state.formant, state.pitch) ? '' : ' · ' + t('unlikely'));
-  padEl.setAttribute('aria-valuetext', t('padValue', { p: sgn(state.pitch, 1), f: sgn(state.formant, 0) }) + ', ' + ageText(ageDelta(state.formant, state.pitch)));
-  $('fxLabel').textContent = labelFor();
-}
-function padFromEvent(e) {
-  const r = padEl.getBoundingClientRect();
-  const u = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), v = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
-  setPad(PAD.pMin + (1 - v) * (PAD.pMax - PAD.pMin), PAD.fMin + u * (PAD.fMax - PAD.fMin));
-}
-let padDrag = false;
-padEl.addEventListener('pointerdown', (e) => { padDrag = true; padEl.setPointerCapture(e.pointerId); padFromEvent(e); });
-padEl.addEventListener('pointermove', (e) => { if (padDrag) padFromEvent(e); });
-const padEnd = () => { if (padDrag) { padDrag = false; render(); } };
-padEl.addEventListener('pointerup', padEnd);
-padEl.addEventListener('pointercancel', padEnd);
-let padKeyTimer = 0;
-padEl.addEventListener('keydown', (e) => {
-  const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [0.25, 0], ArrowDown: [-0.25, 0] }[e.key];
-  if (!d) return;
-  e.preventDefault(); setPad(state.pitch + d[0], state.formant + d[1]);
-  clearTimeout(padKeyTimer); padKeyTimer = setTimeout(render, 400);
-});
-$('padReset').onclick = () => { setPad(0, PAD_DEFAULT[state.direction]); render(); };
-new ResizeObserver(drawPadGrid).observe(padEl);
-setPad(0, PAD_DEFAULT.younger);
-
-$('dirYoung').onclick = () => setDirection('younger');
-$('dirOld').onclick = () => setDirection('older');
-$('strength').addEventListener('input', (e) => { state.strength = +e.target.value; $('strengthOut').textContent = state.strength.toFixed(2); $('fxLabel').textContent = labelFor(); showNotes(); drawPadGrid(); });
-$('strength').addEventListener('change', render);
 
 // ------------------------------------------------------------ recording
-let rec = null;
-let audioCtx = null;
+let rec = null, audioCtx = null;
 const getCtx = () => (audioCtx ||= new (window.AudioContext || window.webkitAudioContext)());
-
 async function startRec() {
-  setError('');
-  if (!navigator.mediaDevices?.getUserMedia) return setError(t('errNoRec'));
+  toast('');
+  if (!navigator.mediaDevices?.getUserMedia) return toast(t('errNoRec'), true);
   const ctx = getCtx(); await ctx.resume();
   let stream;
   try {
-    const ns = $('nsBox').checked;
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: ns, autoGainControl: false, channelCount: 1 } });
-  } catch (e) {
-    return setError(t('errMic'));
-  }
-  const src = ctx.createMediaStreamSource(stream);
-  const proc = ctx.createScriptProcessor(4096, 1, 1);
-  const parts = []; let n = 0; const t0 = performance.now();
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: $('nsBox').checked, autoGainControl: false, channelCount: 1 } });
+  } catch (e) { return toast(t('errMic'), true); }
+  const src = ctx.createMediaStreamSource(stream), proc = ctx.createScriptProcessor(4096, 1, 1);
+  const parts = []; let n = 0;
   proc.onaudioprocess = (e) => {
     const d = e.inputBuffer.getChannelData(0); parts.push(new Float32Array(d)); n += d.length;
     let p = 0; for (let i = 0; i < d.length; i += 8) p = Math.max(p, Math.abs(d[i]));
     $('level').style.width = Math.min(100, p * 140) + '%';
     const s = n / ctx.sampleRate;
-    $('timer').innerHTML = `${fmtClock(s)} <small data-i18n="timerMax">${t('timerMax')}</small>`;
+    setStatus(fmtClock(s), t('timerMax'));
     if (s >= MAX_S) stopRec();
   };
   const mute = ctx.createGain(); mute.gain.value = 0;
   src.connect(proc); proc.connect(mute); mute.connect(ctx.destination);
-  rec = { stream, src, proc, mute, parts, get n() { return n; }, sr: ctx.sampleRate, t0 };
-  $('recBtn').classList.add('on'); $('recBtn').dataset.i18nAria = 'recStop'; $('recBtn').setAttribute('aria-label', t('recStop'));
-  $('recHint').dataset.i18n = 'recHintOn'; $('recHint').textContent = t('recHintOn'); $('recHint').hidden = false;
+  rec = { stream, src, proc, mute, parts, get n() { return n; }, sr: ctx.sampleRate };
+  $('recBtn').classList.add('on'); $('recBtn').setAttribute('aria-label', t('recStop'));
+  $('meter').hidden = false; $('singBtns').hidden = true; setStatus('0:00', t('timerMax'));
 }
 function stopRec() {
   if (!rec) return;
   const r = rec; rec = null;
   r.proc.onaudioprocess = null; r.src.disconnect(); r.proc.disconnect(); r.mute.disconnect();
-  r.stream.getTracks().forEach(t => t.stop());
-  $('recBtn').classList.remove('on'); $('recBtn').dataset.i18nAria = 'recStart'; $('recBtn').setAttribute('aria-label', t('recStart'));
-  $('level').style.width = '0';
-  $('recHint').hidden = true;
+  r.stream.getTracks().forEach(tr => tr.stop());
+  $('recBtn').classList.remove('on'); $('recBtn').setAttribute('aria-label', t('recStart'));
+  $('level').style.width = '0'; $('meter').hidden = true; $('singBtns').hidden = false;
   const pcm = new Float32Array(r.n); let o = 0; for (const p of r.parts) { pcm.set(p, o); o += p.length; }
-  // drop the first 150 ms (button tap)
-  loadTake(pcm.subarray(Math.round(0.15 * r.sr)), r.sr, 'recording');
+  loadTake(pcm.subarray(Math.round(0.15 * r.sr)), r.sr, 'recording'); // drop the button tap
 }
 $('recBtn').onclick = () => (rec ? stopRec() : startRec());
 
-// ------------------------------------------------------------ files
+// ------------------------------------------------------------ files (audio or video)
 async function decodeToMono(arrayBuf) {
   const ctx = getCtx();
-  const ab = await new Promise((res, rej) => {
-    const p = ctx.decodeAudioData(arrayBuf, res, rej); if (p && p.then) p.then(res, rej);
-  });
+  const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arrayBuf, res, rej); if (p && p.then) p.then(res, rej); });
   const ch = ab.numberOfChannels, n = ab.length, pcm = new Float32Array(n);
   for (let c = 0; c < ch; c++) { const d = ab.getChannelData(c); for (let i = 0; i < n; i++) pcm[i] += d[i] / ch; }
   return { pcm, sr: ab.sampleRate };
 }
+async function resample(pcm, sr, to, maxS) {
+  const n = Math.min(pcm.length, Math.round(maxS * sr));
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OAC || sr === to) return { pcm: pcm.slice(0, n), sr };
+  const ctx = new OAC(1, Math.ceil(n * to / sr), to), buf = ctx.createBuffer(1, n, sr);
+  buf.copyToChannel(pcm.subarray(0, n), 0);
+  const s = ctx.createBufferSource(); s.buffer = buf; s.connect(ctx.destination); s.start();
+  return { pcm: (await ctx.startRendering()).getChannelData(0), sr: to };
+}
 $('fileIn').addEventListener('change', async (e) => {
   const f = e.target.files[0]; if (!f) return;
-  try { getCtx().resume(); const { pcm, sr } = await decodeToMono(await f.arrayBuffer()); loadTake(pcm, sr, f.name); }
-  catch (err) { setError(t('errOpen')); }
+  try { getCtx().resume(); const { pcm, sr } = await decodeToMono(await f.arrayBuffer()); loadTake(pcm, sr, 'file'); }
+  catch (err) { toast(t('errOpen'), true); }
   e.target.value = '';
 });
 $('sampleBtn').onclick = async () => {
   try { getCtx().resume(); const { pcm, sr } = await decodeToMono(await (await fetch('sample.wav')).arrayBuffer()); loadTake(pcm, sr, 'sample'); }
-  catch (err) { setError(t('errSample')); }
+  catch (err) { toast(t('errSample'), true); }
 };
+// An old recording of the user: measure their pitch, steadiness and clarity back then.
+$('oldIn').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (state.busy) return toast(t('busy'));
+  state.busy = true; $('recBtn').disabled = true;
+  setStatus(t('oldReading')); onProgress = (m) => showProgress(m.done); showProgress(0.02);
+  try {
+    getCtx().resume();
+    const d = await decodeToMono(await f.arrayBuffer());
+    const { pcm, sr } = await resample(d.pcm, d.sr, 16000, OLD_MAX_S);
+    const r = await call('measure', { pcm: Float32Array.from(pcm), sr });
+    if (!r.f0med) throw new Error(t('oldNoVoice'));
+    state.old = { f0med: r.f0med, wobble: r.wobble, hnr: r.hnr, seconds: Math.round(pcm.length / sr) };
+    toast(t('oldDone'));
+  } catch (err) { toast(t('oldFail', { e: err.message }), true); }
+  state.busy = false; $('recBtn').disabled = false; showProgress(null); idleStatus(); showOld();
+  if (state.queued) state.queued = false;
+  changed();
+});
+$('oldClear').onclick = () => { state.old = null; showOld(); changed(); };
+function showOld() {
+  const on = !!state.old;
+  $('oldBtn').classList.toggle('has', on); $('oldClear').hidden = !on;
+  $('oldText').textContent = on ? t('oldUsing', { s: state.old.seconds }) : t('oldRec');
+}
 
-// ------------------------------------------------------------ share / report
+// ------------------------------------------------------------ share / speed report
 $('shareBtn').onclick = async () => {
   if (!state.fxBlob) return;
-  const name = `fledgling-${state.direction}-p${Math.round(state.pitch * 100)}c-f${Math.round(state.formant * 10) / 10}pct-t${Math.round(state.strength * 100)}.wav`;
+  const name = `fledgling-${BAND_EN[state.age]}-to-${BAND_EN[state.target]}.wav`;
   const file = new File([state.fxBlob], name, { type: 'audio/wav' });
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
-  } catch (e) { if (e.name === 'AbortError') return; }
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } }
+  catch (e) { if (e.name === 'AbortError') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
 };
 function report() {
-  const t = state.timings, dur = state.take ? state.take.pcm.length / state.take.sr : 0;
-  return [
-    `Fledgling ${VERSION} speed report`,
-    `Device: ${navigator.userAgent}`,
-    `Cores: ${navigator.hardwareConcurrency || '?'}`,
-    `Take: ${dur.toFixed(1)} s at ${state.take ? state.take.sr : '?'} Hz (${state.take ? state.take.label : 'none'}), ${t.chunks || 0} chunk(s)`,
-    `Reading the voice: ${t.analyse ? fmtS(t.analyse) : '–'}`,
-    `Age effect (${labelFor()}): ${t.render ? fmtS(t.render) : '–'}`,
-  ].join('\n');
+  const tm = state.timings, dur = state.take ? state.take.pcm.length / state.take.sr : 0;
+  return [`Fledgling ${VERSION} speed report`, `Device: ${navigator.userAgent}`, `Model: ${DEVICE.device_model || '?'}`, `Cores: ${navigator.hardwareConcurrency || '?'}`,
+    `Take: ${dur.toFixed(1)} s at ${state.take ? state.take.sr : '?'} Hz, ${tm.chunks || 0} chunk(s)`,
+    `Reading the voice: ${tm.analyse ? fmtS(tm.analyse) : '–'}`, `Age effect (${fxLabel()}): ${tm.render ? fmtS(tm.render) : '–'}`].join('\n');
 }
 $('copyBtn').onclick = async () => {
-  try { await navigator.clipboard.writeText(report()); $('copyNote').textContent = t('copied'); }
-  catch { $('copyNote').textContent = report(); }
+  try { await navigator.clipboard.writeText(report()); $('copyNote').textContent = t('copied'); } catch { $('copyNote').textContent = report(); }
 };
+$('setBtn').onclick = () => $('settings').showModal();
 
-// ------------------------------------------------------------ offline install
+// ------------------------------------------------------------ device info for the research log (no IDs, no IP)
+const DEVICE = {
+  device_platform: navigator.userAgentData?.platform || navigator.platform || '', device_model: '',
+  device_mobile: navigator.userAgentData ? String(navigator.userAgentData.mobile) : '', user_agent: navigator.userAgent,
+  device_cores: navigator.hardwareConcurrency || '', device_memory_gb: navigator.deviceMemory || '',
+  screen: `${screen.width}x${screen.height}@${window.devicePixelRatio || 1}`,
+};
+navigator.userAgentData?.getHighEntropyValues?.(['model', 'platformVersion']).then((h) => {
+  DEVICE.device_model = h.model || ''; DEVICE.device_platform += h.platformVersion ? ' ' + h.platformVersion : '';
+}).catch(() => {});
+
 // ------------------------------------------------------------ languages
 const langSel = $('langSel');
 const langAuto = document.createElement('option'); langAuto.value = 'auto'; langSel.appendChild(langAuto);
@@ -384,20 +394,17 @@ function refreshLang() {
   langAuto.textContent = `${t('th_auto')} · ${LANGS.find(([c]) => c === deviceLang())[1]}`;
   document.title = t('appName');
   $('ver').textContent = t('version', { v: VERSION });
-  $('fxLabel').textContent = labelFor();
-  if ($('fxState').dataset.done && state.lastMs != null) $('fxState').textContent = t('readyIn', { t: fmtS(state.lastMs) });
-  setPad(state.pitch, state.formant); drawPadGrid(); showAgeGuess(); showNotes();
-  fillThemes();
   $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
-  $('rsCount').textContent = t('rsCount', { n: rsN });
-  syncAudioUi();
+  fillBands(); fillThemes(); showMetrics(); showOld(); showCount();
+  if (!rec && !state.busy) idleStatus();
 }
 langSel.value = savedLang() ? LANG : 'auto';
+langSel.addEventListener('change', () => { closePop(); setLang(langSel.value); refreshLang(); });
 
 // ------------------------------------------------------------ themes
 const THEMES = ['season', 'auto', 'bright', 'dark', 'spring', 'summer', 'fall', 'winter', 'thanksgiving', 'christmas'];
 const themeSel = $('themeSel');
-let theme = 'season'; // default: follow the calendar
+let theme = THEMES.includes(store.get('yv-theme')) ? store.get('yv-theme') : 'season'; // default: follow the calendar
 // Season from today's date (northern hemisphere): Christmas Dec 1-26, Thanksgiving the week around the
 // 4th Thursday of November, then spring Mar-May, summer Jun-Aug, fall Sep-Nov, winter Dec-Feb.
 function seasonNow(d = new Date()) {
@@ -407,66 +414,59 @@ function seasonNow(d = new Date()) {
     if (day >= tg - 6 && day <= tg + 3) return 'thanksgiving'; }
   return m <= 1 || m === 11 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall';
 }
-try { const v = localStorage.getItem('yv-theme'); if (THEMES.includes(v)) theme = v; } catch (e) {}
 function fillThemes() {
   themeSel.innerHTML = '';
   THEMES.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k === 'season' ? `${t('th_season')} · ${t('th_' + seasonNow())}` : t('th_' + k); themeSel.appendChild(o); });
   themeSel.value = theme;
 }
 function applyTheme() {
-  const root = document.documentElement;
-  const th = theme === 'season' ? seasonNow() : theme;
-  if (th === 'auto') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', th === 'bright' ? 'light' : th);
+  const root = document.documentElement, th = theme === 'season' ? seasonNow() : theme;
+  if (th === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', th === 'bright' ? 'light' : th);
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
-  if (theme !== 'auto') { $('tcLight').content = bg; $('tcDark').content = bg; }
-  else { $('tcLight').content = '#f3efe8'; $('tcDark').content = '#16141a'; }
-  drawPadGrid();
+  if (th !== 'auto') { $('tcLight').content = bg; $('tcDark').content = bg; } else { $('tcLight').content = '#f3efe8'; $('tcDark').content = '#16141a'; }
 }
-themeSel.addEventListener('change', () => { theme = themeSel.value; try { localStorage.setItem('yv-theme', theme); } catch (e) {} applyTheme(); });
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawPadGrid);
+themeSel.addEventListener('change', () => { theme = themeSel.value; store.set('yv-theme', theme); applyTheme(); });
 
-// ------------------------------------------------------------ research log (on this phone; sent only by the user)
-let rsN = 0;
-async function showCount() { rsN = await Research.count(); $('rsCount').textContent = t('rsCount', { n: rsN }); $('rsSendBtn').disabled = !rsN; }
-$('rsBox').checked = Research.optedIn;
-$('rsBox').addEventListener('change', () => { Research.setOptIn($('rsBox').checked); $('rsState').textContent = ''; });
-function syncAudioUi() {
-  const on = Research.withAudio;
-  $('rsAudioBox').checked = $('rvAudioBox').checked = on;
-  $('rsYesLi').textContent = t(on ? 'rsYes' : 'rsYesNoAudio');
+// ------------------------------------------------------------ help improve this app (log stays on the phone)
+async function showCount() {
+  const on = Research.optedIn;
+  $('rsSwitch').setAttribute('aria-checked', on); $('rsRow').hidden = !on;
+  const n = await Research.count();
+  $('rsCount').textContent = t('tries', { n }); $('rsSend').disabled = $('rsSendNo').disabled = !n;
 }
-syncAudioUi();
-$('rsAudioBox').addEventListener('change', () => { Research.setAudio($('rsAudioBox').checked); syncAudioUi(); $('rsState').textContent = ''; });
+$('rsSwitch').onclick = () => { Research.setOptIn(!Research.optedIn); showCount(); };
 let pendingZip = null;
-async function buildZip() { // build first, so the confirm tap can share at once
-  const { blob, rows } = await Research.exportZip();
-  const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
-  pendingZip = rows ? new File([blob], name, { type: 'application/zip' }) : null;
-  return rows;
-}
-async function fillReview() { // show exactly what is in the file
-  const rv = await Research.review();
-  $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
-  $('rvId').textContent = t('rvId', { id: Research.device });
-  $('rvCsv').textContent = rv.csv;
-  const tb = $('rvRows'); tb.innerHTML = '';
-  const hm = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const play = (k) => rv.keys.has(k) ? `<button type="button" class="rv-play" data-key="${k}">${t('rvPlay')}</button>` : '';
-  const seen = new Set();
-  for (const r of rv.rows) {
-    if (!seen.has(r.take_id)) { // the original once per take
-      seen.add(r.take_id);
+async function openReview(withAudio) {
+  try {
+    const { blob, rows } = await Research.exportZip(withAudio); // build first, so the confirm tap can share at once
+    if (!rows) return toast(t('rsEmpty'));
+    const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}${withAudio ? '' : '-no-audio'}.zip`;
+    pendingZip = new File([blob], name, { type: 'application/zip' });
+    const rv = await Research.review(withAudio);
+    $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
+    $('rvId').textContent = t('rvId', { id: Research.device });
+    $('rvCsv').textContent = rv.csv;
+    const tb = $('rvRows'); tb.innerHTML = '';
+    const hm = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const play = (k) => rv.keys.has(k) ? `<button type="button" class="rv-play" data-key="${k}">${t('rvPlay')}</button>` : '';
+    const seen = new Set();
+    for (const r of rv.rows) {
+      if (!seen.has(r.take_id)) {
+        seen.add(r.take_id);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${t('rvOriginal')} · ${r.duration_s} s</td><td>${play(`${r.take_id}/original.wav`)}</td>`;
+        tb.appendChild(tr);
+      }
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${t('rvOriginal')} · ${r.duration_s} s</td><td>${r.original_age_guess ?? '–'}</td><td>${play(`${r.take_id}/original.wav`)}</td>`;
+      const what = r.age_band ? `${r.age_band}→${r.target_band} · ${sign(+r.pitch_st)} ${t('st')} · ${t('textureShort')} ${r.texture}` : `${r.pitch_st} ${t('st')} · ${r.formant_pct}%`;
+      tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${what}</td><td>${play(`${r.take_id}/${r.try_id}.wav`)}</td>`;
       tb.appendChild(tr);
     }
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${t(r.direction)} · ${r.pitch_st >= 0 ? '+' : ''}${r.pitch_st} ${t('st')} · ${r.formant_pct >= 0 ? '+' : ''}${r.formant_pct}% · ${t('textureShort')} ${r.texture}</td><td>${r.est_age ?? '–'}</td><td>${play(`${r.take_id}/${r.try_id}.wav`)}</td>`;
-    tb.appendChild(tr);
-  }
-  return rv.rows.length;
+    $('rvOk').disabled = false; $('review').returnValue = ''; $('review').showModal();
+  } catch (e) { toast(t('rsFail', { e: e.message }), true); }
 }
+$('rsSend').onclick = () => openReview(true);
+$('rsSendNo').onclick = () => openReview(false);
 $('rvRows').addEventListener('click', async (e) => {
   const b = e.target.closest('.rv-play'); if (!b) return;
   const au = $('rvAudio'), blob = await Research.getAudio(b.dataset.key); if (!blob) return;
@@ -474,48 +474,28 @@ $('rvRows').addEventListener('click', async (e) => {
   au.dataset.url = au.src = URL.createObjectURL(blob); au.play().catch(() => {});
 });
 $('review').addEventListener('close', () => { $('rvAudio').pause(); });
-// Audio on/off inside the check screen: rebuild the file, then let them confirm again.
-$('rvAudioBox').addEventListener('change', async () => {
-  Research.setAudio($('rvAudioBox').checked); syncAudioUi();
-  $('rvAudio').pause(); $('rvOk').disabled = true;
-  try { await buildZip(); await fillReview(); } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
-  $('rvOk').disabled = !pendingZip;
-});
 // Share inside the confirm tap itself: phones only allow the share sheet straight from a tap.
 $('rvOk').addEventListener('click', () => {
   if (!pendingZip) return;
   const file = pendingZip; pendingZip = null;
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: file.name }).catch((e) => { if (e.name !== 'AbortError') $('rsState').textContent = t('rsFail', { e: e.message }); });
+    navigator.share({ files: [file], title: file.name }).catch((e) => { if (e.name !== 'AbortError') toast(t('rsFail', { e: e.message }), true); });
   } else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
 });
-$('rsSendBtn').onclick = async () => {
-  try {
-    if (!await buildZip()) { $('rsState').textContent = t('rsEmpty'); return; }
-    await fillReview();
-    const dlg = $('review'); $('rvOk').disabled = false; dlg.returnValue = ''; dlg.showModal();
-  } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
-};
-$('rsDelAudioBtn').onclick = async () => { await Research.clearAudio(); $('rsState').textContent = t('rsAudioDeleted'); };
-$('rsDelBtn').onclick = async () => { await Research.clear(); $('rsState').textContent = t('rsDeleted'); showCount(); };
-langSel.addEventListener('change', () => { setLang(langSel.value); refreshLang(); });
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
-// Preview mode (claude.ai page): no microphone, no saving, no offline install
-if (window.YV_PREVIEW) {
-  document.querySelector('.rec-row').hidden = true;
-  $('nsBox').parentElement.hidden = true;
-  $('shareBtn').hidden = true;
-  const n = document.createElement('p'); n.className = 'hint';
-  n.dataset.i18nHtml = 'pvNote';
-  $('takeH').parentElement.after(n);
-  $('foot1').dataset.i18n = 'pvFoot';
-  const lbl = document.querySelector('.filebtn'); lbl.className = 'btn primary'; lbl.dataset.i18n = 'pvOpen';
-}
+$('rsDelAudio').onclick = async () => { await Research.clearAudio(); toast(t('rsAudioDeleted')); };
+$('rsDel').onclick = async () => { await Research.clear(); toast(t('rsDeleted')); showCount(); };
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if (window.YV_PREVIEW) { $('recBtn').hidden = true; $('shareBtn').hidden = true; } // claude.ai preview: no mic, no saving
+
 // ------------------------------------------------------------ (i) pop-ups
 let popEl = null, popBtn = null;
 function closePop() { if (popEl) { popEl.remove(); popEl = null; } if (popBtn) { popBtn.setAttribute('aria-expanded', 'false'); popBtn = null; } }
+function popText(key) {
+  const T = typical();
+  const vars = { info_m_pitch: { v: sign(T.pitch) }, info_m_wobble: { v: sign(T.wobble) }, info_m_clarity: { v: sign(T.clarity) } }[key];
+  return t(key, vars) + (state.old && /pitch|wobble|clarity/.test(key) ? ' ' + t('fromOld') : '');
+}
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.info');
   if (!b) { if (popEl && !popEl.contains(e.target)) closePop(); return; }
@@ -523,16 +503,15 @@ document.addEventListener('click', (e) => {
   const same = b === popBtn; closePop(); if (same) return;
   popBtn = b; b.setAttribute('aria-expanded', 'true');
   popEl = document.createElement('div'); popEl.className = 'pop'; popEl.setAttribute('role', 'note');
-  popEl.textContent = t(b.dataset.info); document.body.appendChild(popEl);
-  const r = b.getBoundingClientRect(), w = popEl.offsetWidth;
-  popEl.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, r.left + r.width / 2 - w / 2)) + window.scrollX + 'px';
-  popEl.style.top = r.bottom + 8 + window.scrollY + 'px';
+  popEl.textContent = popText(b.dataset.info); (b.closest('dialog') || document.body).appendChild(popEl);
+  const r = b.getBoundingClientRect(), w = popEl.offsetWidth, h = popEl.offsetHeight;
+  popEl.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, r.left + r.width / 2 - w / 2)) + 'px';
+  popEl.style.top = (r.bottom + 8 + h > window.innerHeight - 8 ? Math.max(8, r.top - 8 - h) : r.bottom + 8) + 'px';
 }, true);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePop(); });
 window.addEventListener('resize', closePop);
-langSel.addEventListener('change', closePop);
+$('metrics').addEventListener('scroll', closePop); document.querySelector('.content').addEventListener('scroll', closePop);
 
 refreshLang();
 applyTheme();
-showCount();
-window.__yv = { state, call, loadTake, report }; // for automated tests
+window.__yv = { state, call, loadTake, report, typical }; // for automated tests
