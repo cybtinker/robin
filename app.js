@@ -1,6 +1,6 @@
 /* Younger Voice PoC: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-3';
+const VERSION = 'poc-4';
 const MAX_S = 90;
 const $ = (id) => document.getElementById(id);
 
@@ -84,7 +84,10 @@ async function loadTake(pcm, sr, label) {
     const r = await call('analyse', { pcm: Float32Array.from(pcm), sr });
     state.timings = { analyse: r.ms, analyseWall: performance.now() - t0, chunks: r.chunks };
     $('sAna').textContent = fmtS(r.ms);
-    state.f0med = r.f0med || 0; state.age = r.age ? Math.round(r.age) : null; showAgeGuess(); drawPadGrid(); setPad(state.pitch, state.formant);
+    state.f0med = r.f0med || 0; state.age = r.age ? Math.round(r.age) : null; showAgeGuess();
+    Research.newTake(pcm, sr, { age: r.age ? +r.age.toFixed(1) : null, f0med: r.f0med, lang: LANG, version: VERSION,
+      source: label === 'recording' || label === 'sample' ? label : 'file' }, wavBlob); /* file names are never sent */
+    drawPadGrid(); setPad(state.pitch, state.formant);
   } catch (e) {
     state.busy = false; $('recBtn').disabled = false; showProgress(null, null);
     state.take = null;
@@ -112,6 +115,14 @@ async function render() {
     const dur = state.take.pcm.length / state.take.sr;
     $('sFx').textContent = fmtS(r.ms);
     $('sRt').textContent = `${((state.timings.analyse + r.ms) / 1000 / dur * 100).toFixed(0)} %`;
+    if (Research.optedIn) {
+      const d = ageDelta(state.formant, state.pitch);
+      Research.logTry(r.pcm, state.take.sr, { direction: state.direction, pitch_st: state.pitch, formant_pct: state.formant,
+        texture: state.strength, cues: { ...state.cues }, est_delta_years: +d.toFixed(1),
+        est_age: state.age ? +(state.age + d).toFixed(1) : null, lang: LANG })
+        .then(() => { $('rsState').textContent = t('rsSent'); showCount(); })
+        .catch((e) => { $('rsState').textContent = t('rsFail', { e: e.message }); });
+    }
   } catch (e) {
     setError(t('errFx', { e: e.message }));
     $('fxState').textContent = '';
@@ -345,8 +356,51 @@ function refreshLang() {
   $('fxLabel').textContent = labelFor();
   if ($('fxState').dataset.done && state.lastMs != null) $('fxState').textContent = t('readyIn', { t: fmtS(state.lastMs) });
   setPad(state.pitch, state.formant); drawPadGrid(); showAgeGuess();
+  fillThemes();
+  $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
+  $('rsCount').textContent = t('rsCount', { n: rsN });
 }
 langSel.value = LANG;
+
+// ------------------------------------------------------------ themes
+const THEMES = ['auto', 'bright', 'dark', 'spring', 'summer', 'fall', 'winter', 'thanksgiving', 'christmas'];
+const themeSel = $('themeSel');
+let theme = 'auto';
+try { const v = localStorage.getItem('yv-theme'); if (THEMES.includes(v)) theme = v; } catch (e) {}
+function fillThemes() {
+  themeSel.innerHTML = '';
+  THEMES.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = t('th_' + k); themeSel.appendChild(o); });
+  themeSel.value = theme;
+}
+function applyTheme() {
+  const root = document.documentElement;
+  if (theme === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', theme === 'bright' ? 'light' : theme);
+  const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+  if (theme !== 'auto') { $('tcLight').content = bg; $('tcDark').content = bg; }
+  else { $('tcLight').content = '#f3efe8'; $('tcDark').content = '#16141a'; }
+  drawPadGrid();
+}
+themeSel.addEventListener('change', () => { theme = themeSel.value; try { localStorage.setItem('yv-theme', theme); } catch (e) {} applyTheme(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawPadGrid);
+
+// ------------------------------------------------------------ research log (on this phone; sent only by the user)
+let rsN = 0;
+async function showCount() { rsN = await Research.count(); $('rsCount').textContent = t('rsCount', { n: rsN }); $('rsSendBtn').disabled = !rsN; }
+$('rsBox').checked = Research.optedIn;
+$('rsBox').addEventListener('change', () => { Research.setOptIn($('rsBox').checked); $('rsState').textContent = ''; });
+$('rsSendBtn').onclick = async () => {
+  try {
+    const { blob, rows } = await Research.exportZip();
+    if (!rows) { $('rsState').textContent = t('rsEmpty'); return; }
+    const name = `younger-voice-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
+    const file = new File([blob], name, { type: 'application/zip' });
+    try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } }
+    catch (e) { if (e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click();
+  } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
+};
+$('rsDelBtn').onclick = async () => { await Research.clear(); $('rsState').textContent = t('rsDeleted'); showCount(); };
 langSel.addEventListener('change', () => { setLang(langSel.value); refreshLang(); });
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -364,4 +418,6 @@ if (window.YV_PREVIEW) {
   const lbl = document.querySelector('.filebtn'); lbl.className = 'btn primary'; lbl.dataset.i18n = 'pvOpen';
 }
 refreshLang();
+applyTheme();
+showCount();
 window.__yv = { state, call, loadTake, report }; // for automated tests

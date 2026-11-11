@@ -31,6 +31,11 @@ not depend on the strength slider. In voicecore.transform they are the cues `pit
 - After reading a take, the app guesses its age (voicecore.guessAge: loudness flutter + spectral tilt, least-squares fit to the one-listener blind-test ratings of 12 clips, RMSE ~6 years on those clips). The thick green line is that age. Unscientific: expect 10+ years of error on new voices.
 - Grey corners on the pad: unlikely mixes (high pitch with low formants, or low pitch with high formants). Likely band: pitch = 0.2 st per 1 % formant, ±1.25 st.
 
+## Myna icon, themes, research log (poc-4, 2026-11-11)
+- Myna app icon (icon.svg, icon-180/192/512.png), drawn for this project.
+- Theme picker: Automatic, Bright, Dark, Spring, Summer, Fall, Winter, Thanksgiving, Christmas (tokens + a small ornament strip per theme). Remembered on the device.
+- Research log (research.js), opt-in, off by default, no accounts or servers: each take and each try is added to a CSV kept on the phone (IndexedDB) with a random device ID, plus 24 kHz WAVs. "Send research log" shares one .zip (log.csv + audio/) through the phone's share sheet. Not kept: name, email, IP, location, file names. log.csv columns: created_at, device_id, take_id, try_id, original_age_guess, duration_s, f0_median, source, direction, pitch_st, formant_pct, texture, est_delta_years, est_age, lang, app_version, original_audio, try_audio, cues.
+
 ## Licences
 WORLD: modified BSD (keep WORLD-LICENSE.txt with the app). All other code is project code. No GPL.
 

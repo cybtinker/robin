@@ -7,13 +7,14 @@
 <meta name="description" content="Record yourself singing and hear a younger or older version of your own voice. Runs entirely on your phone.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Younger Voice">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f3efe8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16141a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3efe8" media="(prefers-color-scheme: light)" id="tcLight">
+<meta name="theme-color" content="#16141a" media="(prefers-color-scheme: dark)" id="tcDark">
 <style>
 /* Layout: one narrow column, like a pocket recorder: take, age dial, playback, speed log. */
 :root {
@@ -56,7 +57,7 @@ main {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h1 { font: 700 1.7rem/1.1 var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 .tag { font: 600 0.72rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 section { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
@@ -126,8 +127,33 @@ details summary { cursor: pointer; font-size: .92rem; color: var(--muted); }
 #ageGuess { margin-top: -4px; }
 .linkbtn { white-space: nowrap; border: 0; background: none; padding: 0; color: var(--accent); font: 600 .78rem var(--body); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
+
+/* themes: data-theme on <html>. light/dark = bright/dark; the rest are seasonal palettes */
+:root { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%231f7a6d'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23a4651b'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%234cc2ae'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23e0a050'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); } }
+:root[data-theme="dark"] { --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg fill='%234cc2ae'%3E%3Cellipse cx='18' cy='18' rx='5' ry='3.6' transform='rotate%28-20 18 18%29'/%3E%3Crect x='21.5' y='4' width='2' height='14'/%3E%3C/g%3E%3Cg fill='%23e0a050'%3E%3Cellipse cx='70' cy='22' rx='5' ry='3.6' transform='rotate%28-20 70 22%29'/%3E%3Crect x='73.5' y='8' width='2' height='14'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="spring"] { --bg: #f3f6ec; --panel: #fffffa; --ink: #1f2a1d; --muted: #66705f; --line: #dfe6d3; --rec: #d6402e; --young: #b5476e; --old: #8a6d1c; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2818 14%29' fill='%23f2a7bf'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3Cg transform='translate%2862 10%29' fill='%23f7c6d6'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3Cg transform='translate%28100 17%29' fill='%23e98aaa'%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%280%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%2872%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28144%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28216%29'/%3E%3Ccircle cx='0' cy='-5' r='4' transform='rotate%28288%29'/%3E%3Ccircle r='2.4' fill='%23f6d36b'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="summer"] { --bg: #fff5e1; --panel: #fffdf6; --ink: #23201a; --muted: #74685a; --line: #efdcb8; --rec: #d6402e; --young: #0a7fa8; --old: #c45a1a; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2820 12%29' stroke='%23f2a72b' stroke-width='2' stroke-linecap='round'%3E%3Ccircle r='5' fill='%23f2a72b'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%280%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%2845%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%2890%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28135%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28180%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28225%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28270%29'/%3E%3Cline x1='0' y1='-8' x2='0' y2='-11' transform='rotate%28315%29'/%3E%3C/g%3E%3Cpath d='M0 24 q15 -8 30 0 t30 0 t30 0 t30 0' fill='none' stroke='%233fa7c9' stroke-width='2'/%3E%3C/svg%3E"); }
+:root[data-theme="fall"] { --bg: #f6ebdf; --panel: #fffaf3; --ink: #2a1d14; --muted: #7a6656; --line: #e8d5c1; --rec: #c23a24; --young: #b4521f; --old: #6f4b2a; --now: #3f7f2e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cpath transform='translate%2816 14%29 rotate%2830%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23c8582a' stroke='%23c8582a' stroke-width='1'/%3E%3Cpath transform='translate%2854 12%29 rotate%28-20%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23e0a133' stroke='%23e0a133' stroke-width='1'/%3E%3Cpath transform='translate%2892 15%29 rotate%2860%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%239a3f1f' stroke='%239a3f1f' stroke-width='1'/%3E%3C/svg%3E"); }
+:root[data-theme="winter"] { --bg: #e8eff6; --panel: #fbfdff; --ink: #172331; --muted: #5c6d7e; --line: #d1dde9; --rec: #cf3b30; --young: #2a6fb0; --old: #7a5a8c; --now: #2f8f3e; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2816 12%29' stroke='%237fa9cf' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate%2858 16%29' stroke='%23a9c7e2' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate%2898 10%29' stroke='%237fa9cf' stroke-width='1.6' stroke-linecap='round'%3E%3Cg transform='rotate%280%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%2860%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28120%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28180%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28240%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3Cg transform='rotate%28300%29'%3E%3Cline x1='0' y1='0' x2='0' y2='-8'/%3E%3Cline x1='0' y1='-5' x2='-2.5' y2='-7.5'/%3E%3Cline x1='0' y1='-5' x2='2.5' y2='-7.5'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="thanksgiving"] { --bg: #f2e5d2; --panel: #fff9f0; --ink: #2d1e12; --muted: #7b634e; --line: #e3cfb3; --rec: #c23a24; --young: #a8461b; --old: #6b5a2a; --now: #4a7a2a; color-scheme: light; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2818 12%29' fill='%23c99a3c'%3E%3Crect x='-0.8' y='-2' width='1.6' height='14'/%3E%3Cellipse cx='-2.5' cy='-4' rx='2' ry='3.6' transform='rotate%28-25 -2.5 -4%29'/%3E%3Cellipse cx='2.5' cy='-4' rx='2' ry='3.6' transform='rotate%2825 2.5 -4%29'/%3E%3Cellipse cx='-2.5' cy='1' rx='2' ry='3.6' transform='rotate%28-25 -2.5 1%29'/%3E%3Cellipse cx='2.5' cy='1' rx='2' ry='3.6' transform='rotate%2825 2.5 1%29'/%3E%3Cellipse cx='0' cy='-8' rx='2' ry='3.6' transform='rotate%280 0 -8%29'/%3E%3C/g%3E%3Cpath transform='translate%2856 14%29 rotate%2820%29' d='M0 -9 C7 -5 7 5 0 9 C-7 5 -7 -5 0 -9 Z M0 -9 L0 11' fill='%23b4521f' stroke='%23b4521f' stroke-width='1'/%3E%3Cg transform='translate%2894 12%29' fill='%23c99a3c'%3E%3Crect x='-0.8' y='-2' width='1.6' height='14'/%3E%3Cellipse cx='-2.5' cy='-4' rx='2' ry='3.6' transform='rotate%28-25 -2.5 -4%29'/%3E%3Cellipse cx='2.5' cy='-4' rx='2' ry='3.6' transform='rotate%2825 2.5 -4%29'/%3E%3Cellipse cx='-2.5' cy='1' rx='2' ry='3.6' transform='rotate%28-25 -2.5 1%29'/%3E%3Cellipse cx='2.5' cy='1' rx='2' ry='3.6' transform='rotate%2825 2.5 1%29'/%3E%3Cellipse cx='0' cy='-8' rx='2' ry='3.6' transform='rotate%280 0 -8%29'/%3E%3C/g%3E%3C/svg%3E"); }
+:root[data-theme="christmas"] { --bg: #10261c; --panel: #183627; --ink: #f6efe3; --muted: #b6c6b9; --line: #2b4f3d; --rec: #ff6a5c; --young: #ef5a4e; --old: #e6b84f; --now: #7fe08a; color-scheme: dark; --deco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='28' viewBox='0 0 120 28'%3E%3Cg transform='translate%2816 16%29'%3E%3Cline x1='0' y1='-14' x2='0' y2='-6' stroke='%23c9b37a' stroke-width='1'/%3E%3Crect x='-2' y='-7' width='4' height='3' fill='%23c9b37a'/%3E%3Ccircle r='6' fill='%23d6372e'/%3E%3Ccircle cx='-2' cy='-2' r='1.6' fill='%23fff' opacity='.6'/%3E%3C/g%3E%3Cg transform='translate%2858 14%29'%3E%3Cpath d='M-12 0 q4 -6 10 -2 q-2 6 -10 2z M12 0 q-4 -6 -10 -2 q2 6 10 2z' fill='%232f7a46'/%3E%3Ccircle cx='-2' cy='2' r='2.4' fill='%23d6372e'/%3E%3Ccircle cx='2' cy='3' r='2.4' fill='%23d6372e'/%3E%3C/g%3E%3Cg transform='translate%2898 16%29'%3E%3Cline x1='0' y1='-14' x2='0' y2='-6' stroke='%23c9b37a' stroke-width='1'/%3E%3Crect x='-2' y='-7' width='4' height='3' fill='%23c9b37a'/%3E%3Ccircle r='6' fill='%23e0b34a'/%3E%3Ccircle cx='-2' cy='-2' r='1.6' fill='%23fff' opacity='.6'/%3E%3C/g%3E%3C/svg%3E"); }
+.deco { height: 28px; background: var(--deco) repeat-x left center / auto 28px; opacity: .9; margin-bottom: -6px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand img { width: 40px; height: 40px; border-radius: 10px; flex: none; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+.pickers { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+/* research opt-in */
+.research { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.research .check { color: var(--ink); font-weight: 600; }
+.rs-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: .84rem; color: var(--muted); }
+.rs-list li { padding-left: 22px; position: relative; }
+.rs-list li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.rs-list .yes::before { content: "✓"; color: var(--now); }
+.rs-list .no::before { content: "✕"; color: var(--rec); }
+
 /* language picker */
-.lang { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px 4px 10px; margin-left: auto; }
+.lang { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 8px 4px 10px; }
 .lang-ico { font: 700 .78rem var(--body); color: var(--accent); }
 .lang select { border: 0; background: transparent; color: var(--ink); font: 600 .88rem var(--body); padding: 2px 0; cursor: pointer; }
 header .tag { flex-basis: 100%; }
@@ -158,9 +184,13 @@ footer a { color: inherit; }
 </head>
 <body>
 <main>
+  <div class="deco" aria-hidden="true"></div>
   <header>
-    <h1 data-i18n="appName">Younger Voice</h1>
-    <label class="lang" for="langSel"><span class="lang-ico" aria-hidden="true">文A</span><select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
+    <div class="brand"><img src="icon-192.png" alt="" width="40" height="40"><h1 data-i18n="appName">Younger Voice</h1></div>
+    <div class="pickers">
+      <label class="lang" for="langSel"><span class="lang-ico" aria-hidden="true">文A</span><select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
+      <label class="lang" for="themeSel"><svg class="lang-ico" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 1a6 6 0 0 1 0 12z" fill="currentColor"/></svg><select id="themeSel" data-i18n-aria="themeLabel" aria-label="Theme"></select></label>
+    </div>
     <span class="tag" id="offlineTag" data-i18n="tag">On this phone · no upload</span>
   </header>
 
@@ -229,6 +259,16 @@ footer a { color: inherit; }
       <button class="btn primary" id="shareBtn" disabled data-i18n="share">Save or share</button>
       <button class="btn" id="sampleBtn" data-i18n="sample">Try a sample voice</button>
     </div>
+    <div class="research" id="research">
+      <label class="check"><input type="checkbox" id="rsBox"> <span data-i18n="rsShare">Keep a research log of my tries</span></label>
+      <ul class="rs-list">
+        <li class="yes" data-i18n="rsYes"></li>
+        <li class="no" data-i18n="rsNo"></li>
+      </ul>
+      <div class="row"><button class="btn" id="rsSendBtn" data-i18n="rsSend">Send research log</button><button class="linkbtn" id="rsDelBtn" data-i18n="rsDelete">Delete log</button></div>
+      <p class="hint"><span id="rsCount"></span> · <span id="rsId"></span></p>
+      <p class="hint" id="rsState" aria-live="polite"></p>
+    </div>
   </section>
 
   <section aria-labelledby="speedH">
@@ -251,6 +291,7 @@ footer a { color: inherit; }
   </footer>
 </main>
 <script src="i18n.js"></script>
+<script src="research.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
