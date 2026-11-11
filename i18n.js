@@ -190,6 +190,7 @@ const STR = {
     playYounger: "Younger ({b})",
     playOlder: "Older ({b})",
     done: "Done",
+    rsSaved: "Saved {f} to your Downloads. Attach it to an email or message to send it.",
   },
 
   ko: {
@@ -374,6 +375,7 @@ const STR = {
     playYounger: "더 젊게 ({b})",
     playOlder: "더 나이 들게 ({b})",
     done: "완료",
+    rsSaved: "{f} 파일을 다운로드 폴더에 저장했습니다. 이메일이나 메시지에 첨부해 보내 주세요.",
   },
 
   ja: {
@@ -558,6 +560,7 @@ const STR = {
     playYounger: "若く（{b}）",
     playOlder: "年上に（{b}）",
     done: "完了",
+    rsSaved: "{f} をダウンロードに保存しました。メールやメッセージに添付して送ってください。",
   },
 
   zh: {
@@ -742,6 +745,7 @@ const STR = {
     playYounger: "更年轻（{b}）",
     playOlder: "更年长（{b}）",
     done: "完成",
+    rsSaved: "已将 {f} 保存到“下载”。请把它作为附件通过邮件或消息发送。",
   },
 
   fr: {
@@ -926,6 +930,7 @@ const STR = {
     playYounger: "Rajeuni ({b})",
     playOlder: "Vieilli ({b})",
     done: "OK",
+    rsSaved: "{f} est enregistré dans vos Téléchargements. Joignez-le à un e-mail ou un message pour l’envoyer.",
   },
 
   es: {
@@ -1110,6 +1115,7 @@ const STR = {
     playYounger: "Más joven ({b})",
     playOlder: "Mayor ({b})",
     done: "Listo",
+    rsSaved: "Se guardó {f} en Descargas. Adjúntalo a un correo o mensaje para enviarlo.",
   },
 };
 

@@ -89,15 +89,22 @@ const Research = (() => {
     const rows = (await tx(['rows'], 'readonly', t => t.objectStore('rows').getAll())).sort((a, b) => a.created_at.localeCompare(b.created_at));
     const d = await db();
     const keys = withAudio ? await new Promise((res, rej) => { const r = d.transaction('audio').objectStore('audio').getAllKeys(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }) : [];
-    const have = new Set(keys.map(k => `audio/${k}`));
-    for (const r of rows) { if (!have.has(r.original_audio)) r.original_audio = ''; if (!have.has(r.try_audio)) r.try_audio = ''; }
-    return { rows, keys };
+    // audio files are sent flat (no folders), so they can also be shared one by one: <take>_<try>.wav
+    const flat = (k) => k.replace('/', '_'), have = new Set(keys.map(k => `audio/${k}`));
+    for (const r of rows) {
+      r.original_audio = have.has(r.original_audio) ? flat(r.original_audio.slice(6)) : '';
+      r.try_audio = have.has(r.try_audio) ? flat(r.try_audio.slice(6)) : '';
+    }
+    return { rows, keys, flat };
   }
+  // Returns the .zip and the same content as separate files (log.csv + WAVs). Phones' share sheets
+  // refuse .zip files (Android Chrome: "Permission denied"), but accept CSV and WAV.
   async function exportZip(withAudio = true) {
-    const { rows, keys } = await collect(withAudio);
+    const { rows, keys, flat } = await collect(withAudio);
     const files = [{ name: 'log.csv', data: '\ufeff' + toCsv(rows) }];
-    for (const k of keys) { const blob = await getAudio(k); if (blob) files.push({ name: `audio/${k}`, data: blob }); }
-    return { blob: await zip(files), rows: rows.length };
+    for (const k of keys) { const blob = await getAudio(k); if (blob) files.push({ name: flat(k), data: blob }); }
+    const loose = files.map(f => new File([f.data], f.name, { type: f.name.endsWith('.csv') ? 'text/csv' : 'audio/wav' }));
+    return { blob: await zip(files), rows: rows.length, files: loose };
   }
   async function review(withAudio = true) { // everything that would be sent, for the confirm screen
     const { rows, keys } = await collect(withAudio);

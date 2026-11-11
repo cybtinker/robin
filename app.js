@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-8';
+const VERSION = 'poc-8.1';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -435,13 +435,14 @@ async function showCount() {
   $('rsCount').textContent = t('tries', { n }); $('rsSend').disabled = $('rsSendNo').disabled = !n;
 }
 $('rsSwitch').onclick = () => { Research.setOptIn(!Research.optedIn); showCount(); };
-let pendingZip = null;
+let outbox = null; // { zip, files } built before the confirm tap
 async function openReview(withAudio) {
   try {
-    const { blob, rows } = await Research.exportZip(withAudio); // build first, so the confirm tap can share at once
+    const { blob, rows, files } = await Research.exportZip(withAudio); // build first, so the confirm tap can share at once
     if (!rows) return toast(t('rsEmpty'));
-    const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}${withAudio ? '' : '-no-audio'}.zip`;
-    pendingZip = new File([blob], name, { type: 'application/zip' });
+    const stem = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}`;
+    const loose = files.map(f => f.name === 'log.csv' ? new File([f], `${stem}.csv`, { type: 'text/csv' }) : f);
+    outbox = { zip: new File([blob], `${stem}${withAudio ? '' : '-no-audio'}.zip`, { type: 'application/zip' }), files: loose };
     const rv = await Research.review(withAudio);
     $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
     $('rvId').textContent = t('rvId', { id: Research.device });
@@ -475,12 +476,18 @@ $('rvRows').addEventListener('click', async (e) => {
 });
 $('review').addEventListener('close', () => { $('rvAudio').pause(); });
 // Share inside the confirm tap itself: phones only allow the share sheet straight from a tap.
+// Share sheets refuse .zip files (Android Chrome rejects with "Permission denied"), so share log.csv and the
+// WAVs as separate files; if the phone still says no, save the .zip to Downloads to attach by hand.
+function saveZip(zip) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = zip.name; a.click();
+  toast(t('rsSaved', { f: zip.name }));
+}
 $('rvOk').addEventListener('click', () => {
-  if (!pendingZip) return;
-  const file = pendingZip; pendingZip = null;
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: file.name }).catch((e) => { if (e.name !== 'AbortError') toast(t('rsFail', { e: e.message }), true); });
-  } else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); }
+  if (!outbox) return;
+  const { zip, files } = outbox; outbox = null;
+  let ok = false; try { ok = !!(navigator.canShare && navigator.canShare({ files })); } catch (e) {}
+  if (!ok) return saveZip(zip);
+  navigator.share({ files, title: 'Fledgling research log' }).catch((e) => { if (e.name !== 'AbortError') saveZip(zip); });
 });
 $('rsDelAudio').onclick = async () => { await Research.clearAudio(); toast(t('rsAudioDeleted')); };
 $('rsDel').onclick = async () => { await Research.clear(); toast(t('rsDeleted')); showCount(); };
