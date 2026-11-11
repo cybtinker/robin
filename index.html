@@ -326,10 +326,11 @@ footer a { color: inherit; }
     <div class="research" id="research">
       <div class="h2row"><label class="check"><input type="checkbox" id="rsBox"> <span data-i18n="rsShare">Keep a research log of my tries</span></label><button class="info" type="button" data-info="info_research" data-i18n-aria="infoLabel" aria-label="What is this?">i</button></div>
       <ul class="rs-list">
-        <li class="yes" data-i18n="rsYes"></li>
+        <li class="yes" id="rsYesLi" data-i18n="rsYes"></li>
         <li class="no" data-i18n="rsNo"></li>
       </ul>
-      <div class="row"><button class="btn" id="rsSendBtn" data-i18n="rsSend">Send research log</button><button class="linkbtn" id="rsDelBtn" data-i18n="rsDelete">Delete log</button></div>
+      <label class="check rs-audio"><input type="checkbox" id="rsAudioBox"> <span data-i18n="rsAudio">Include my voice recordings</span></label>
+      <div class="row"><button class="btn" id="rsSendBtn" data-i18n="rsSend">Send research log</button><button class="linkbtn" id="rsDelAudioBtn" data-i18n="rsDelAudio">Remove my audio</button><button class="linkbtn" id="rsDelBtn" data-i18n="rsDelete">Delete log</button></div>
       <p class="hint"><span id="rsCount"></span> · <span id="rsId"></span></p>
       <p class="hint" id="rsState" aria-live="polite"></p>
     </div>
@@ -358,6 +359,7 @@ footer a { color: inherit; }
     <h2 id="rvTitle" data-i18n="rvTitle">Check before sending</h2>
     <p class="hint" data-i18n="rvIntro"></p>
     <p class="rv-sum"><span id="rvFiles"></span><br><span id="rvId"></span></p>
+    <label class="check"><input type="checkbox" id="rvAudioBox"> <span data-i18n="rsAudio">Include my voice recordings</span></label>
     <div class="rv-table"><table><thead><tr><th data-i18n="rvTime"></th><th data-i18n="rvSettings"></th><th data-i18n="rvAge"></th><th></th></tr></thead><tbody id="rvRows"></tbody></table></div>
     <details><summary data-i18n="rvShowCsv"></summary><pre id="rvCsv"></pre></details>
     <audio id="rvAudio" hidden></audio>

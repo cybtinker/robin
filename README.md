@@ -49,3 +49,8 @@ WORLD: modified BSD (keep WORLD-LICENSE.txt with the app). All other code is pro
 
 ## Ideas to speed it up later
 Read the voice in parallel workers (one per chunk); DIO instead of Harvest for pitch (much faster, slightly less robust); native build of the same C++ for an App Store version.
+
+## poc-7
+- Research log: "Include my voice recordings" on/off (in More and on the check-before-sending screen). Off = no audio is saved or sent, only the numbers in log.csv. "Remove my audio" deletes stored recordings and keeps the numbers.
+- Language: new "Automatic" choice (the default) follows the phone/browser language; picking a language pins it.
+- Theme: new "By date" choice (the default) picks spring/summer/fall/winter, Thanksgiving week or Christmas (Dec 1–26) from today's date.

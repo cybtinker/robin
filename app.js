@@ -1,6 +1,6 @@
 /* Fledgling PoC: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-6';
+const VERSION = 'poc-7';
 const MAX_S = 90;
 const $ = (id) => document.getElementById(id);
 
@@ -362,9 +362,11 @@ $('copyBtn').onclick = async () => {
 // ------------------------------------------------------------ offline install
 // ------------------------------------------------------------ languages
 const langSel = $('langSel');
+const langAuto = document.createElement('option'); langAuto.value = 'auto'; langSel.appendChild(langAuto);
 LANGS.forEach(([code, name]) => { const o = document.createElement('option'); o.value = code; o.textContent = name; langSel.appendChild(o); });
 function refreshLang() {
   applyI18n();
+  langAuto.textContent = `${t('th_auto')} · ${LANGS.find(([c]) => c === deviceLang())[1]}`;
   document.title = t('appName');
   $('ver').textContent = t('version', { v: VERSION });
   $('fxLabel').textContent = labelFor();
@@ -373,23 +375,34 @@ function refreshLang() {
   fillThemes();
   $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
   $('rsCount').textContent = t('rsCount', { n: rsN });
+  syncAudioUi();
 }
-langSel.value = LANG;
+langSel.value = savedLang() ? LANG : 'auto';
 
 // ------------------------------------------------------------ themes
-const THEMES = ['auto', 'bright', 'dark', 'spring', 'summer', 'fall', 'winter', 'thanksgiving', 'christmas'];
+const THEMES = ['season', 'auto', 'bright', 'dark', 'spring', 'summer', 'fall', 'winter', 'thanksgiving', 'christmas'];
 const themeSel = $('themeSel');
-let theme = 'auto';
+let theme = 'season'; // default: follow the calendar
+// Season from today's date (northern hemisphere): Christmas Dec 1-26, Thanksgiving the week around the
+// 4th Thursday of November, then spring Mar-May, summer Jun-Aug, fall Sep-Nov, winter Dec-Feb.
+function seasonNow(d = new Date()) {
+  const m = d.getMonth(), day = d.getDate();
+  if (m === 11 && day <= 26) return 'christmas';
+  if (m === 10) { const first = new Date(d.getFullYear(), 10, 1).getDay(), tg = 1 + ((4 - first + 7) % 7) + 21;
+    if (day >= tg - 6 && day <= tg + 3) return 'thanksgiving'; }
+  return m <= 1 || m === 11 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'fall';
+}
 try { const v = localStorage.getItem('yv-theme'); if (THEMES.includes(v)) theme = v; } catch (e) {}
 function fillThemes() {
   themeSel.innerHTML = '';
-  THEMES.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = t('th_' + k); themeSel.appendChild(o); });
+  THEMES.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k === 'season' ? `${t('th_season')} · ${t('th_' + seasonNow())}` : t('th_' + k); themeSel.appendChild(o); });
   themeSel.value = theme;
 }
 function applyTheme() {
   const root = document.documentElement;
-  if (theme === 'auto') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', theme === 'bright' ? 'light' : theme);
+  const th = theme === 'season' ? seasonNow() : theme;
+  if (th === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', th === 'bright' ? 'light' : th);
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
   if (theme !== 'auto') { $('tcLight').content = bg; $('tcDark').content = bg; }
   else { $('tcLight').content = '#f3efe8'; $('tcDark').content = '#16141a'; }
@@ -403,37 +416,56 @@ let rsN = 0;
 async function showCount() { rsN = await Research.count(); $('rsCount').textContent = t('rsCount', { n: rsN }); $('rsSendBtn').disabled = !rsN; }
 $('rsBox').checked = Research.optedIn;
 $('rsBox').addEventListener('change', () => { Research.setOptIn($('rsBox').checked); $('rsState').textContent = ''; });
-async function reviewAndConfirm() { // show exactly what is in the file; resolve true only on "send"
+function syncAudioUi() {
+  const on = Research.withAudio;
+  $('rsAudioBox').checked = $('rvAudioBox').checked = on;
+  $('rsYesLi').textContent = t(on ? 'rsYes' : 'rsYesNoAudio');
+}
+syncAudioUi();
+$('rsAudioBox').addEventListener('change', () => { Research.setAudio($('rsAudioBox').checked); syncAudioUi(); $('rsState').textContent = ''; });
+let pendingZip = null;
+async function buildZip() { // build first, so the confirm tap can share at once
+  const { blob, rows } = await Research.exportZip();
+  const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
+  pendingZip = rows ? new File([blob], name, { type: 'application/zip' }) : null;
+  return rows;
+}
+async function fillReview() { // show exactly what is in the file
   const rv = await Research.review();
-  if (!rv.rows.length) { $('rsState').textContent = t('rsEmpty'); return false; }
-  $('rvFiles').textContent = t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) });
+  $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
   $('rvId').textContent = t('rvId', { id: Research.device });
   $('rvCsv').textContent = rv.csv;
   const tb = $('rvRows'); tb.innerHTML = '';
+  const hm = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const play = (k) => rv.keys.has(k) ? `<button type="button" class="rv-play" data-key="${k}">${t('rvPlay')}</button>` : '';
   const seen = new Set();
   for (const r of rv.rows) {
     if (!seen.has(r.take_id)) { // the original once per take
       seen.add(r.take_id);
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${t('rvOriginal')} · ${r.duration_s} s</td><td>${r.original_age_guess ?? '–'}</td><td><button type="button" class="rv-play" data-key="${r.take_id}/original.wav">${t('rvPlay')}</button></td>`;
+      tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${t('rvOriginal')} · ${r.duration_s} s</td><td>${r.original_age_guess ?? '–'}</td><td>${play(`${r.take_id}/original.wav`)}</td>`;
       tb.appendChild(tr);
     }
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td><td>${t(r.direction)} · ${r.pitch_st >= 0 ? '+' : ''}${r.pitch_st} ${t('st')} · ${r.formant_pct >= 0 ? '+' : ''}${r.formant_pct}% · ${t('textureShort')} ${r.texture}</td><td>${r.est_age ?? '–'}</td><td><button type="button" class="rv-play" data-key="${r.take_id}/${r.try_id}.wav">${t('rvPlay')}</button></td>`;
+    tr.innerHTML = `<td>${hm(r.created_at)}</td><td>${t(r.direction)} · ${r.pitch_st >= 0 ? '+' : ''}${r.pitch_st} ${t('st')} · ${r.formant_pct >= 0 ? '+' : ''}${r.formant_pct}% · ${t('textureShort')} ${r.texture}</td><td>${r.est_age ?? '–'}</td><td>${play(`${r.take_id}/${r.try_id}.wav`)}</td>`;
     tb.appendChild(tr);
   }
-  const dlg = $('review'), au = $('rvAudio');
-  tb.onclick = async (e) => {
-    const b = e.target.closest('.rv-play'); if (!b) return;
-    const blob = await Research.getAudio(b.dataset.key); if (!blob) return;
-    if (au.dataset.url) URL.revokeObjectURL(au.dataset.url);
-    au.dataset.url = au.src = URL.createObjectURL(blob); au.play().catch(() => {});
-  };
-  dlg.addEventListener('close', () => { au.pause(); }, { once: true });
-  dlg.returnValue = ''; dlg.showModal();
-  return true;
+  return rv.rows.length;
 }
-let pendingZip = null;
+$('rvRows').addEventListener('click', async (e) => {
+  const b = e.target.closest('.rv-play'); if (!b) return;
+  const au = $('rvAudio'), blob = await Research.getAudio(b.dataset.key); if (!blob) return;
+  if (au.dataset.url) URL.revokeObjectURL(au.dataset.url);
+  au.dataset.url = au.src = URL.createObjectURL(blob); au.play().catch(() => {});
+});
+$('review').addEventListener('close', () => { $('rvAudio').pause(); });
+// Audio on/off inside the check screen: rebuild the file, then let them confirm again.
+$('rvAudioBox').addEventListener('change', async () => {
+  Research.setAudio($('rvAudioBox').checked); syncAudioUi();
+  $('rvAudio').pause(); $('rvOk').disabled = true;
+  try { await buildZip(); await fillReview(); } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
+  $('rvOk').disabled = !pendingZip;
+});
 // Share inside the confirm tap itself: phones only allow the share sheet straight from a tap.
 $('rvOk').addEventListener('click', () => {
   if (!pendingZip) return;
@@ -444,13 +476,12 @@ $('rvOk').addEventListener('click', () => {
 });
 $('rsSendBtn').onclick = async () => {
   try {
-    const { blob, rows } = await Research.exportZip(); // build first, so the confirm tap can share at once
-    if (!rows) { $('rsState').textContent = t('rsEmpty'); return; }
-    const name = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.zip`;
-    pendingZip = new File([blob], name, { type: 'application/zip' });
-    await reviewAndConfirm();
+    if (!await buildZip()) { $('rsState').textContent = t('rsEmpty'); return; }
+    await fillReview();
+    const dlg = $('review'); $('rvOk').disabled = false; dlg.returnValue = ''; dlg.showModal();
   } catch (e) { $('rsState').textContent = t('rsFail', { e: e.message }); }
 };
+$('rsDelAudioBtn').onclick = async () => { await Research.clearAudio(); $('rsState').textContent = t('rsAudioDeleted'); };
 $('rsDelBtn').onclick = async () => { await Research.clear(); $('rsState').textContent = t('rsDeleted'); showCount(); };
 langSel.addEventListener('change', () => { setLang(langSel.value); refreshLang(); });
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

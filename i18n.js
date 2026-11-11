@@ -84,6 +84,7 @@ const STR = {
     pvFoot: 'Preview of the proof of concept. The voice processing runs in this browser; your recording is not uploaded. The installable version adds recording and offline use.',
     pvOpen: 'Open a recording',
     themeLabel: 'Theme',
+    th_season: "By date",
     th_auto: 'Automatic',
     th_bright: 'Bright',
     th_dark: 'Dark',
@@ -128,6 +129,11 @@ const STR = {
     rvOk: 'Looks fine, send it',
     rvCancel: 'Cancel',
     rvOriginal: 'original',
+    rsAudio: "Include my voice recordings",
+    rsYesNoAudio: "Kept: the settings of each version you make, the age estimate, the app language and a random ID made on this phone. No voice recordings.",
+    rsDelAudio: "Remove my audio",
+    rsAudioDeleted: "Your voice recordings were removed from this phone. The numbers in the log are kept.",
+    rvNoAudio: "log.csv only, no audio",
   },
 
   ko: {
@@ -206,6 +212,7 @@ const STR = {
     pvFoot: '개념 증명 미리보기입니다. 음성 처리는 이 브라우저에서 이루어지며 녹음은 업로드되지 않습니다. 설치형 버전에서는 녹음과 오프라인 사용이 가능합니다.',
     pvOpen: '녹음 파일 열기',
     themeLabel: '테마',
+    th_season: "날짜에 맞춤",
     th_auto: '자동',
     th_bright: '밝게',
     th_dark: '어둡게',
@@ -250,6 +257,11 @@ const STR = {
     rvOk: '확인했습니다, 보내기',
     rvCancel: '취소',
     rvOriginal: '원본',
+    rsAudio: "내 목소리 녹음 포함",
+    rsYesNoAudio: "저장: 만든 버전마다의 설정, 나이 추정치, 앱 언어, 이 휴대폰에서 만든 무작위 ID. 목소리 녹음은 저장하지 않습니다.",
+    rsDelAudio: "내 오디오 삭제",
+    rsAudioDeleted: "이 휴대폰에서 목소리 녹음을 삭제했습니다. 기록의 숫자는 남아 있습니다.",
+    rvNoAudio: "log.csv만, 오디오 없음",
   },
 
   ja: {
@@ -328,6 +340,7 @@ const STR = {
     pvFoot: '概念実証のプレビューです。音声処理はこのブラウザ内で行われ、録音はアップロードされません。インストール版では録音とオフライン利用ができます。',
     pvOpen: '録音ファイルを開く',
     themeLabel: 'テーマ',
+    th_season: "日付に合わせる",
     th_auto: '自動',
     th_bright: 'ライト',
     th_dark: 'ダーク',
@@ -372,6 +385,11 @@ const STR = {
     rvOk: '問題ないので送る',
     rvCancel: 'キャンセル',
     rvOriginal: '元の録音',
+    rsAudio: "自分の歌声の録音を含める",
+    rsYesNoAudio: "保存するもの：作った各バージョンの設定、推定年齢、アプリの言語、この端末で作ったランダムID。声の録音は保存しません。",
+    rsDelAudio: "自分の音声を削除",
+    rsAudioDeleted: "この端末から声の録音を削除しました。ログの数値は残っています。",
+    rvNoAudio: "log.csv のみ、音声なし",
   },
 
   zh: {
@@ -450,6 +468,7 @@ const STR = {
     pvFoot: '概念验证预览。声音处理在此浏览器中完成，录音不会上传。安装版支持录音和离线使用。',
     pvOpen: '打开录音文件',
     themeLabel: '主题',
+    th_season: "按日期",
     th_auto: '自动',
     th_bright: '明亮',
     th_dark: '深色',
@@ -494,6 +513,11 @@ const STR = {
     rvOk: '没问题，发送',
     rvCancel: '取消',
     rvOriginal: '原始录音',
+    rsAudio: "包含我的声音录音",
+    rsYesNoAudio: "保留：你生成的每个版本的设置、年龄估计、应用语言，以及在本机生成的随机 ID。不保留声音录音。",
+    rsDelAudio: "删除我的音频",
+    rsAudioDeleted: "已从本机删除你的声音录音。日志中的数值仍保留。",
+    rvNoAudio: "仅 log.csv，无音频",
   },
 
   fr: {
@@ -572,6 +596,7 @@ const STR = {
     pvFoot: 'Aperçu de la preuve de concept. Le traitement de la voix se fait dans ce navigateur ; votre enregistrement n’est pas envoyé. La version installable ajoute l’enregistrement et l’usage hors ligne.',
     pvOpen: 'Ouvrir un enregistrement',
     themeLabel: 'Thème',
+    th_season: "Selon la date",
     th_auto: 'Automatique',
     th_bright: 'Clair',
     th_dark: 'Sombre',
@@ -616,6 +641,11 @@ const STR = {
     rvOk: 'C’est bon, envoyer',
     rvCancel: 'Annuler',
     rvOriginal: 'original',
+    rsAudio: "Inclure mes enregistrements de voix",
+    rsYesNoAudio: "Conservé : les réglages de chaque version créée, l’âge estimé, la langue de l’app et un identifiant aléatoire créé sur ce téléphone. Aucun enregistrement de voix.",
+    rsDelAudio: "Supprimer mon audio",
+    rsAudioDeleted: "Vos enregistrements de voix ont été supprimés de ce téléphone. Les chiffres du journal sont conservés.",
+    rvNoAudio: "log.csv seulement, sans audio",
   },
 
   es: {
@@ -694,6 +724,7 @@ const STR = {
     pvFoot: 'Vista previa de la prueba de concepto. El procesamiento de la voz se hace en este navegador; tu grabación no se sube. La versión instalable añade la grabación y el uso sin conexión.',
     pvOpen: 'Abrir una grabación',
     themeLabel: 'Tema',
+    th_season: "Según la fecha",
     th_auto: 'Automático',
     th_bright: 'Claro',
     th_dark: 'Oscuro',
@@ -738,18 +769,24 @@ const STR = {
     rvOk: 'Está bien, enviar',
     rvCancel: 'Cancelar',
     rvOriginal: 'original',
+    rsAudio: "Incluir mis grabaciones de voz",
+    rsYesNoAudio: "Se guarda: los ajustes de cada versión que creas, la edad estimada, el idioma de la app y un ID aleatorio creado en este teléfono. Sin grabaciones de voz.",
+    rsDelAudio: "Borrar mi audio",
+    rsAudioDeleted: "Se borraron tus grabaciones de voz de este teléfono. Los números del registro se conservan.",
+    rvNoAudio: "solo log.csv, sin audio",
   },
 };
 
 let LANG = 'en';
-function pickLang() {
-  try { const s = localStorage.getItem('yv-lang'); if (s && STR[s]) return s; } catch (e) {}
+function savedLang() { try { const s = localStorage.getItem('yv-lang'); return s && STR[s] ? s : null; } catch (e) { return null; } }
+function deviceLang() { // the phone's or browser's own language order, first one we have
   for (const l of navigator.languages || [navigator.language || 'en']) {
     const k = String(l).toLowerCase().slice(0, 2);
     if (STR[k]) return k;
   }
   return 'en';
 }
+const pickLang = () => savedLang() || deviceLang();
 function t(key, vars) {
   let s = (STR[LANG] && STR[LANG][key]) ?? STR.en[key] ?? key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
@@ -762,9 +799,9 @@ function applyI18n(root = document) {
   root.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
   root.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
 }
-function setLang(l) {
-  LANG = STR[l] ? l : 'en';
-  try { localStorage.setItem('yv-lang', LANG); } catch (e) {}
+function setLang(l) { // 'auto' follows the device language again
+  if (l === 'auto') { try { localStorage.removeItem('yv-lang'); } catch (e) {} LANG = deviceLang(); }
+  else { LANG = STR[l] ? l : 'en'; try { localStorage.setItem('yv-lang', LANG); } catch (e) {} }
   applyI18n();
 }
 LANG = pickLang();
