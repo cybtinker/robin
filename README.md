@@ -62,3 +62,15 @@ Read the voice in parallel workers (one per chunk); DIO instead of Harvest for p
 - Male/Female (pre-filled from the take's pitch, 280 Hz for singing) and five sliders with Common Voice defaults: Pitch (st), Steadiness (% pitch wander around the melody, new `wobble_pct` cue), Voice size (formant %), Clarity (harmonics-to-noise dB, new `hnr_db` cue), Texture (0–1.5). "Typical" resets them; 3-bar icons show how much each changes between the chosen ages.
 - Old recording (audio or video): first 2.5 min, at 16 kHz, measured in the worker (`measure`); its pitch, steadiness and clarity replace the averages (capped at ±3 st, ±40 %, ±3 dB).
 - Help improve this app: switch, Send / Send, no audio, remove audio, delete; review dialog kept. Log adds band, voice, slider values and typical values, device info (platform, model via client hints, cores, memory, screen, user agent) and analysis/effect timings.
+
+## poc-9: voice makeup
+
+The main screen is now three "looks", each 0-100 %: **Younger**, **Confident** and **Attractive**.
+They mix into the five fine-tune values (pitch, steadiness, voice size, clarity, texture):
+
+- Younger scales the age-band change (Your age → Sound like, default 50s → 20s).
+- Confident: steadiness −30 % and clarity +1.2 dB at 100 %.
+- Attractive: steadiness −10 %, clarity +1.8 dB and smoothing texture 0.5 at 100 %.
+
+Defaults are 80 / 50 / 50 %. The age tiles, old recording, Male/Female and the five sliders moved
+into the **Fine-tune** dialog. The research log adds look_younger, look_confident and look_attractive.

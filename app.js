@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-8.3';
+const VERSION = 'poc-9';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -69,7 +69,7 @@ const bandFrom = (k, d) => { const v = +store.get(k); return Number.isInteger(v)
 const state = {
   age: bandFrom('yv-age-band', 4), target: bandFrom('yv-target-band', 1),
   voice: store.get('yv-voice') || 'male', voicePicked: !!store.get('yv-voice'),
-  over: {}, cues: {}, old: null, feat: null,
+  over: {}, cues: {}, looks: null, old: null, feat: null,
   take: null, timings: {}, fxBlob: null, busy: false, queued: false, lastMs: null,
 };
 const direction = () => (state.target > state.age ? 'older' : 'younger');
@@ -95,7 +95,26 @@ function typical() {
   }
   return T;
 }
-const val = (k) => state.over[k] ?? typical()[k];
+// Voice makeup: three looks (0-100 %) mix into the five fine-tune values.
+// Younger = the age-band change (Fine-tune), Confident = steadier and less breathy, Attractive = smoother and clearer.
+const LOOKS = [
+  { id: 'young', tint: '#d9efe9', icon: 'M12 3l2.2 5.6L20 9.2l-4.5 3.9L17 19l-5-3.2L7 19l1.5-5.9L4 9.2l5.8-.6z' },
+  { id: 'conf', tint: '#e6e9f7', icon: 'M3 12h4l3-7 4 14 3-7h4' },
+  { id: 'attr', tint: '#f3e3ef', icon: 'M12 20s-7-4.3-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.7-7 10-7 10z' },
+];
+const LOOK_DEF = { young: 80, conf: 50, attr: 50 };
+function loadLooks() { try { const o = JSON.parse(store.get('yv-looks') || '{}'); const r = {}; for (const k in LOOK_DEF) r[k] = Number.isFinite(o[k]) ? clamp(o[k], 0, 100) : LOOK_DEF[k]; return r; } catch (e) { return { ...LOOK_DEF }; } }
+state.looks = loadLooks();
+function base() {
+  const T = typical(), y = state.looks.young / 100, c = state.looks.conf / 100, a = state.looks.attr / 100;
+  return {
+    pitch: r1(y * T.pitch), formant: r1(y * T.formant),
+    wobble: Math.round(clamp(y * T.wobble - 30 * c - 10 * a, -40, 40)),
+    clarity: r1(clamp(y * T.clarity + 1.2 * c + 1.8 * a, -4, 4)),
+    texture: r1(Math.max(y * T.texture, direction() === 'younger' ? 0.5 * a : 0) * 100) / 100,
+  };
+}
+const val = (k) => state.over[k] ?? base()[k];
 // how much each measure changes between the chosen ages (Common Voice), 0-3 bars
 function impact(k) {
   const v = Math.abs(typical()[k]); if (state.target === state.age) return 0;
@@ -130,7 +149,20 @@ METRICS.forEach((m) => {
   inp.addEventListener('input', () => { state.over[m.id] = +inp.value; $(`o_${m.id}`).textContent = fmtVal(m, +inp.value); });
   inp.addEventListener('change', render);
 });
+LOOKS.forEach((l) => {
+  const row = document.createElement('div'); row.className = 'metric look';
+  row.innerHTML = `<span class="ico" style="background:${l.tint}" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1a20" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${l.icon}"/></svg></span>`
+    + `<label for="l_${l.id}" data-i18n="l_${l.id}"></label><span class="imp"></span>`
+    + `<input type="range" id="l_${l.id}" min="0" max="100" step="5">`
+    + `<output id="lo_${l.id}" for="l_${l.id}"></output>`
+    + `<button class="info" type="button" data-info="info_l_${l.id}" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>`;
+  $('looks').appendChild(row);
+  const inp = row.querySelector('input');
+  inp.addEventListener('input', () => { state.looks[l.id] = +inp.value; $(`lo_${l.id}`).textContent = inp.value + ' %'; });
+  inp.addEventListener('change', () => { store.set('yv-looks', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
+});
 function showMetrics() {
+  LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; $(`lo_${l.id}`).textContent = state.looks[l.id] + ' %'; });
   METRICS.forEach((m) => {
     const v = val(m.id), lv = impact(m.id);
     $(`m_${m.id}`).value = v; $(`o_${m.id}`).textContent = fmtVal(m, v);
@@ -143,7 +175,7 @@ function showMetrics() {
   $('fxLabel').textContent = fxLabel();
   document.documentElement.classList.toggle('older', direction() === 'older');
 }
-const fxLabel = () => state.target === state.age ? t('playResynth') : t(direction() === 'younger' ? 'playYounger' : 'playOlder', { b: t(BANDS[state.target]) });
+const fxLabel = () => t('playMakeup');
 
 // fine-tune cues (Settings)
 const CUES = ['vibrato', 'jitter', 'shimmer', 'breath', 'tilt', 'clarity'];
@@ -164,6 +196,7 @@ function pickVoice(v) { state.voice = v; state.voicePicked = true; store.set('yv
 $('vMale').onclick = () => pickVoice('male');
 $('vFemale').onclick = () => pickVoice('female');
 $('typicalBtn').onclick = () => changed();
+$('tuneBtn').onclick = () => $('tune').showModal();
 
 // ------------------------------------------------------------ WAV encode / audio
 function wavBlob(pcm, sr) {
@@ -250,6 +283,7 @@ async function render() {
         voice: state.voice, age_band: BAND_EN[state.age], target_band: BAND_EN[state.target], direction: dir,
         used_old_recording: state.old ? 'yes' : 'no', old_f0_median: state.old ? Math.round(state.old.f0med) : '',
         old_wobble_st: state.old ? r1(state.old.wobble * 100) / 100 : '', old_hnr_db: state.old ? r1(state.old.hnr) : '',
+        look_younger: state.looks.young, look_confident: state.looks.conf, look_attractive: state.looks.attr,
         pitch_st: v.pitch, steadiness_pct: v.wobble, formant_pct: v.formant, clarity_db: v.clarity, texture: v.texture,
         typical_pitch_st: T.pitch, typical_steadiness_pct: T.wobble, typical_formant_pct: T.formant, typical_clarity_db: T.clarity,
         changed_by_user: Object.keys(state.over).join(' '), cues: JSON.stringify(state.cues), lang: LANG,
