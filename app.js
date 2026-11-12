@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-9';
+const VERSION = 'poc-9.1';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
