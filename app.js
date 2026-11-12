@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.2';
+const VERSION = 'poc-10.3';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -214,23 +214,59 @@ $('vMale').onclick = () => pickVoice('male');
 $('vFemale').onclick = () => pickVoice('female');
 $('typicalBtn').onclick = () => changed();
 $('tuneBtn').onclick = () => $('tune').showModal();
-// Prank mode (Yong's idea): one button cycles through over-the-top voices, then back to the makeup.
-const PRANKS = [
-  { id: 'chipmunk', dir: 'younger', v: { pitch: 12, formant: 25, wobble: 0, clarity: 2, texture: 0 } },
-  { id: 'giant', dir: 'older', v: { pitch: -10, formant: -20, wobble: 0, clarity: 0, texture: 0.5 } },
-  { id: 'robot', dir: 'younger', robot: true, v: { pitch: 0, formant: 0, wobble: 0, clarity: 20, texture: 0 } },
-  { id: 'wobbly', dir: 'older', v: { pitch: 0, formant: 0, wobble: 300, clarity: -2, texture: 1 } },
+// Prank mode (Yong's idea): pick an over-the-top voice from a picker with fun icons.
+const Z = { pitch: 0, formant: 0, wobble: 0, clarity: 0, texture: 0 };
+const PR = (id, dir, v, cues = {}, extra = {}) => ({ id, dir, v: { ...Z, ...v }, cues, ...extra });
+const PRANKS = [ // most dependable first (Yong: prioritise the ones we are most confident in)
+  PR('chipmunk', 'younger', { pitch: 12, formant: 25, clarity: 2 }),
+  PR('giant', 'older', { pitch: -10, formant: -20, texture: 0.5 }),
+  PR('robot', 'younger', { clarity: 20 }, {}, { robot: true }),
+  PR('balloon', 'younger', { pitch: 2, formant: 30 }),
+  PR('babygiant', 'younger', { pitch: -9, formant: 20 }),
+  PR('canyon', 'younger', {}, {}, { echo: true }),
+  PR('phone', 'younger', { clarity: 3 }, { band_lo: 400, band_hi: 3000 }),
+  PR('upside', 'younger', {}, { invert: 1 }),
+  PR('seasick', 'younger', {}, { sway_st: 3, sway_hz: 0.35 }),
+  PR('diva', 'younger', { pitch: 3, clarity: 3 }, { vib_st: 1.6 }),
+  PR('wobbly', 'older', { wobble: 300, clarity: -2, texture: 1 }),
+  PR('yodel', 'younger', { clarity: 2 }, { yodel: 1 }),
+  PR('ghost', 'younger', { formant: 5 }, { whisper: 1, sway_st: 1, sway_hz: 0.3 }, { echo: true }),
+  PR('underwater', 'younger', { formant: -5 }, { band_hi: 700, sway_st: 0.8, sway_hz: 4 }),
+  PR('zombie', 'older', { pitch: -4, formant: -8, wobble: 100, clarity: -4, texture: 1.5 }),
 ];
+// Little hand-drawn icons, 40x40: a coloured disc with a face or symbol.
+const PR_ICON = {
+  chipmunk: '<circle cx="20" cy="20" r="18" fill="#c98a4b"/><circle cx="10" cy="24" r="5" fill="#e8b37c"/><circle cx="30" cy="24" r="5" fill="#e8b37c"/><circle cx="14" cy="15" r="2.5" fill="#1d1a20"/><circle cx="26" cy="15" r="2.5" fill="#1d1a20"/><circle cx="20" cy="21" r="2" fill="#5a3a22"/><rect x="17" y="24" width="3" height="6" rx="1" fill="#fff"/><rect x="20.5" y="24" width="3" height="6" rx="1" fill="#fff"/>',
+  giant: '<circle cx="20" cy="20" r="18" fill="#7a8f5a"/><path d="M8 13l9 3M32 13l-9 3" stroke="#1d1a20" stroke-width="3" stroke-linecap="round"/><circle cx="14" cy="19" r="2" fill="#1d1a20"/><circle cx="26" cy="19" r="2" fill="#1d1a20"/><path d="M11 29q9-6 18 0" stroke="#1d1a20" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M14 28l1.5 3M25 28l-1.5 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
+  robot: '<circle cx="20" cy="20" r="18" fill="#8fa3b8"/><rect x="9" y="11" width="22" height="19" rx="4" fill="#dfe6ee"/><path d="M20 11V6" stroke="#dfe6ee" stroke-width="2"/><circle cx="20" cy="5" r="2" fill="#e05050"/><rect x="13" y="16" width="5" height="4" rx="1" fill="#2a8fd0"/><rect x="22" y="16" width="5" height="4" rx="1" fill="#2a8fd0"/><path d="M14 25h12" stroke="#1d1a20" stroke-width="2" stroke-dasharray="2 2"/>',
+  wobbly: '<circle cx="20" cy="20" r="18" fill="#b98ad8"/><path d="M8 21c2-5 4-5 6 0s4 5 6 0 4-5 6 0 4 5 6 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="14" cy="13" r="2" fill="#1d1a20"/><circle cx="26" cy="13" r="2" fill="#1d1a20"/>',
+  balloon: '<circle cx="20" cy="20" r="18" fill="#f2c6d8"/><ellipse cx="20" cy="17" rx="9" ry="11" fill="#e0457b"/><path d="M18 28h4l-2 3z" fill="#e0457b"/><path d="M20 31q-2 3 0 6" stroke="#6b4a5a" stroke-width="1.5" fill="none"/><ellipse cx="16.5" cy="12.5" rx="2" ry="3" fill="#fff" opacity=".6"/>',
+  babygiant: '<circle cx="20" cy="20" r="18" fill="#f0d36b"/><circle cx="14" cy="17" r="3" fill="#1d1a20"/><circle cx="26" cy="17" r="3" fill="#1d1a20"/><circle cx="15" cy="16" r="1" fill="#fff"/><circle cx="27" cy="16" r="1" fill="#fff"/><path d="M14 9q6-5 12 0" stroke="#1d1a20" stroke-width="2.5" fill="none"/><circle cx="20" cy="27" r="3.5" fill="#e38aa0"/><circle cx="20" cy="27" r="1.5" fill="#f7c4d0"/>',
+  ghost: '<circle cx="20" cy="20" r="18" fill="#3d3a52"/><path d="M11 32V18a9 9 0 0 1 18 0v14l-3-2.5-3 2.5-3-2.5-3 2.5-3-2.5z" fill="#f4f1fb"/><ellipse cx="16.5" cy="18" rx="1.8" ry="2.6" fill="#1d1a20"/><ellipse cx="23.5" cy="18" rx="1.8" ry="2.6" fill="#1d1a20"/><ellipse cx="20" cy="24" rx="2" ry="2.6" fill="#1d1a20"/>',
+  diva: '<circle cx="20" cy="20" r="18" fill="#e7a7c8"/><path d="M10 13l4-6 6 5 6-5 4 6z" fill="#f2c230"/><circle cx="14" cy="18" r="2" fill="#1d1a20"/><circle cx="26" cy="18" r="2" fill="#1d1a20"/><ellipse cx="20" cy="27" rx="4" ry="5" fill="#8a2040"/><path d="M33 9l3-3M34 14h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>',
+  seasick: '<circle cx="20" cy="20" r="18" fill="#8fd18a"/><path d="M11 15l5 2-5 2M29 15l-5 2 5 2" stroke="#1d1a20" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 28c3-3 5 0 8-2s5 1 8-1" stroke="#1d1a20" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M4 34c4-3 8 3 12 0s8 3 12 0 8 3 12 0" stroke="#2a8fd0" stroke-width="2.5" fill="none"/>',
+  zombie: '<circle cx="20" cy="20" r="18" fill="#7fa37a"/><circle cx="14" cy="16" r="3.5" fill="#f4f1d0"/><circle cx="26" cy="17" r="2.5" fill="#f4f1d0"/><circle cx="14" cy="16" r="1.2" fill="#a02020"/><circle cx="26" cy="17" r="1" fill="#a02020"/><path d="M12 27h16" stroke="#1d1a20" stroke-width="2.5"/><path d="M15 25v4M19 25v4M23 25v4" stroke="#1d1a20" stroke-width="1.5"/><path d="M27 8l-3 5 4 1" stroke="#4d6b48" stroke-width="2" fill="none"/>',
+  upside: '<circle cx="20" cy="20" r="18" fill="#f0a35a"/><g transform="rotate(180 20 20)"><circle cx="14" cy="16" r="2" fill="#1d1a20"/><circle cx="26" cy="16" r="2" fill="#1d1a20"/><path d="M13 25q7 6 14 0" stroke="#1d1a20" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>',
+  yodel: '<circle cx="20" cy="20" r="18" fill="#8ec5e8"/><path d="M4 32l10-16 6 9 5-7 11 14z" fill="#f4f1fb"/><path d="M4 32l10-16 6 9 5-7 11 14" stroke="#4a6b80" stroke-width="1.5" fill="none"/><path d="M27 8v7M27 8l5-1v6" stroke="#1d1a20" stroke-width="1.8" fill="none"/><circle cx="25.5" cy="15" r="1.8" fill="#1d1a20"/><circle cx="30.5" cy="13" r="1.8" fill="#1d1a20"/>',
+  phone: '<circle cx="20" cy="20" r="18" fill="#e05a4a"/><path d="M11 13c0-2 2-3 4-3l2 5-3 2c1 3 4 6 7 7l2-3 5 2c0 2-1 4-3 4-9 0-14-5-14-14z" fill="#fff"/>',
+  underwater: '<circle cx="20" cy="20" r="18" fill="#2a8fd0"/><circle cx="14" cy="26" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="24" cy="16" r="3" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="28" cy="26" r="2" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="18" cy="10" r="1.5" fill="#fff"/>',
+  canyon: '<circle cx="20" cy="20" r="18" fill="#d9894a"/><path d="M2 30l8-14 5 6 6-10 8 12 4-4 5 10z" fill="#9c4f24"/><path d="M14 10q3 2 0 4M18 8q5 4 0 8M22 6q7 6 0 12" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" transform="translate(-6 0)"/>',
+  off: '<circle cx="20" cy="20" r="18" fill="var(--young-soft)"/><path d="M13 21l5 5 9-11" stroke="var(--young)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+const prIcon = (id, size = 40) => `<svg width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true">${PR_ICON[id]}</svg>`;
 state.prank = null;
 function showPrank() {
   const b = $('prankBtn'); b.setAttribute('aria-pressed', !!state.prank);
   $('prankTxt').textContent = state.prank ? t('pr_' + state.prank) : t('prank');
+  $('prankIco').innerHTML = state.prank ? prIcon(state.prank, 18) : prIcon('wobbly', 18).replace('#b98ad8', 'currentColor');
   $('looks').classList.toggle('dim', !!state.prank); $('fxLabel').textContent = fxLabel();
+  $('prankGrid').innerHTML = [{ id: 'off' }, ...PRANKS].map(p => `<button type="button" class="pr-tile" data-pr="${p.id}" aria-pressed="${(state.prank || 'off') === p.id}">${prIcon(p.id)}<span>${t(p.id === 'off' ? 'pr_off' : 'pr_' + p.id)}</span></button>`).join('');
 }
-$('prankBtn').onclick = () => {
-  const i = state.prank ? PRANKS.findIndex(p => p.id === state.prank) + 1 : 0;
-  state.prank = i < PRANKS.length ? PRANKS[i].id : null;
-  showPrank(); render();
+$('prankBtn').onclick = () => $('prankDlg').showModal();
+$('prankGrid').onclick = (e) => {
+  const b = e.target.closest('.pr-tile'); if (!b) return;
+  state.prank = b.dataset.pr === 'off' ? null : b.dataset.pr;
+  $('prankDlg').close(); showPrank(); render();
 };
 
 // ------------------------------------------------------------ WAV encode / audio
@@ -305,8 +341,13 @@ async function render() {
   setStatus(t('applying')); onProgress = (m) => showProgress(m.done); showProgress(0.05);
   try {
     const r = await call('render', { strength: v.texture, direction: dir,
-      cues: { ...state.cues, pitch_cents: Math.round(v.pitch * 100), formant_pct: v.formant, wobble_pct: v.wobble, hnr_db: v.clarity, robot_hz: pr && pr.robot && state.feat ? state.feat.f0med : 0 } });
+      cues: { ...state.cues, pitch_cents: Math.round(v.pitch * 100), formant_pct: v.formant, wobble_pct: v.wobble, hnr_db: v.clarity, robot_hz: pr && pr.robot && state.feat ? state.feat.f0med : 0, ...(pr ? pr.cues : {}) } });
     state.timings.render = r.ms; state.lastMs = r.ms;
+    if (pr && pr.echo) { // canyon: two echoes, 0.35 s and 0.7 s
+      const sr = state.take.sr, d1 = Math.round(0.35 * sr), d2 = 2 * d1, y = new Float32Array(r.pcm.length + d2);
+      for (let i = 0; i < y.length; i++) y[i] = (r.pcm[i] || 0) + 0.45 * (r.pcm[i - d1] || 0) + 0.2 * (r.pcm[i - d2] || 0);
+      r.pcm = y;
+    }
     { // match the original's loudness (big effects such as Wobbly can come out much quieter)
       const rms = (a) => { let q = 0; for (const x of a) q += x * x; return Math.sqrt(q / a.length); };
       let pf = 0; for (const x of r.pcm) pf = Math.max(pf, Math.abs(x));

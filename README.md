@@ -83,9 +83,14 @@ voice size at full; Older = −1.5 st, −6 %, +40 % wobble, −2.5 dB clarity a
 70 / 40 / 30 / 0. Fine-tune ranges widened (pitch ±6 st, voice size −12..16 %, steadiness −60..80 %,
 clarity ±6 dB). Logged as look_age, look_confidence, look_tone, look_gender.
 
-## poc-10.2: Prank button
+## poc-10.2 / 10.3: Prank voices
 
 A Prank button next to Fine-tune cycles Chipmunk → Giant → Robot → Wobbly → back to the makeup.
 Presets are fixed fine-tune values; Robot adds a `robot_hz` cue (every voiced frame on the take's
 median pitch). Moving a makeup slider leaves prank mode. Logged as `prank`. Quiet renders are
 brought up toward the original's loudness.
+
+poc-10.3: the Prank button opens a picker of 15 voices with hand-drawn icons, most dependable first:
+Chipmunk, Giant, Robot, Balloon, Baby giant, Canyon echo, Telephone, Upside-down, Seasick, Opera diva,
+Wobbly, Yodel, Ghost, Underwater, Zombie. New engine cues: `invert`, `sway_st`/`sway_hz`, `vib_st`,
+`yodel`, `whisper`, `band_lo`/`band_hi`; the echo is added in app.js after rendering.
