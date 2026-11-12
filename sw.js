@@ -1,5 +1,5 @@
 // Offline cache: everything the app needs, cache-first. Bump CACHE on each release.
-const CACHE = 'fledgling-poc-10';
+const CACHE = 'fledgling-poc-10.1';
 const FILES = ['./', 'index.html', 'i18n.js', 'research.js', 'app.js', 'icon.svg', 'worker.js', 'voicecore.js', 'world.wasm', 'sample.wav',
   'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
