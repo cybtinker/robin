@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-9.2';
+const VERSION = 'poc-10';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -57,10 +57,10 @@ const DATA = {
   hnr: [[9.4, 9.9, 9.1, 8.9, 8.6, 9.1], [12.5, 12.5, 11.2, 11.3, 12.3, 12.0]],
 };
 const METRICS = [
-  { id: 'pitch', min: -4, max: 4, step: 0.1, unit: ' st', tint: '#d9efe9', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
-  { id: 'wobble', min: -40, max: 40, step: 1, unit: ' %', tint: '#e6e9f7', icon: 'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0' },
-  { id: 'formant', min: -8, max: 12, step: 0.5, unit: ' %', tint: '#f7e9d6', icon: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0' },
-  { id: 'clarity', min: -4, max: 4, step: 0.1, unit: ' dB', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
+  { id: 'pitch', min: -6, max: 6, step: 0.1, unit: ' st', tint: '#d9efe9', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
+  { id: 'wobble', min: -60, max: 80, step: 1, unit: ' %', tint: '#e6e9f7', icon: 'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0' },
+  { id: 'formant', min: -12, max: 16, step: 0.5, unit: ' %', tint: '#f7e9d6', icon: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0' },
+  { id: 'clarity', min: -6, max: 6, step: 0.1, unit: ' dB', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
   { id: 'texture', min: 0, max: 1.5, step: 0.05, unit: '', tint: '#efe9dc', icon: 'M5 6h.01M10 6h.01M15 6h.01M19 6h.01M7 11h.01M12 11h.01M17 11h.01M5 16h.01M10 16h.01M15 16h.01M19 16h.01' },
 ];
 const bandFrom = (k, d) => { const v = +store.get(k); return Number.isInteger(v) && v >= 0 && v <= 5 && store.get(k) != null ? v : d; };
@@ -72,7 +72,7 @@ const state = {
   over: {}, cues: {}, looks: null, old: null, feat: null,
   take: null, timings: {}, fxBlob: null, busy: false, queued: false, lastMs: null,
 };
-const direction = () => (state.target > state.age ? 'older' : 'younger');
+const direction = () => (state.looks && state.looks.age < 0) || state.target > state.age ? 'older' : 'younger';
 // The "typical" slider values for the chosen ages. With an old recording of the user, their own pitch,
 // steadiness and clarity back then replace the averages (capped, since key and mic differ between recordings).
 function typical() {
@@ -95,23 +95,30 @@ function typical() {
   }
   return T;
 }
-// Voice makeup: three looks (0-100 %) mix into the five fine-tune values.
-// Younger = the age-band change (Fine-tune), Confident = steadier and less breathy, Attractive = smoother and clearer.
+// Voice makeup: four two-way sliders (-100..100, 0 = off) mix into the five fine-tune values.
+// Each has a left and a right end; positive = right end.
 const LOOKS = [
-  { id: 'young', tint: '#d9efe9', icon: 'M12 3l2.2 5.6L20 9.2l-4.5 3.9L17 19l-5-3.2L7 19l1.5-5.9L4 9.2l5.8-.6z' },
-  { id: 'conf', tint: '#e6e9f7', icon: 'M3 12h4l3-7 4 14 3-7h4' },
-  { id: 'attr', tint: '#f3e3ef', icon: 'M12 20s-7-4.3-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.7-7 10-7 10z' },
+  { id: 'age', l: 'e_older', r: 'e_younger', tint: '#d9efe9', icon: 'M12 3l2.2 5.6L20 9.2l-4.5 3.9L17 19l-5-3.2L7 19l1.5-5.9L4 9.2l5.8-.6z' },
+  { id: 'conf', l: 'e_timid', r: 'e_conf', tint: '#e6e9f7', icon: 'M3 12h4l3-7 4 14 3-7h4' },
+  { id: 'tone', l: 'e_breathy', r: 'e_clear', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
+  { id: 'gender', l: 'e_masc', r: 'e_fem', tint: '#f7e9d6', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
 ];
-const LOOK_DEF = { young: 80, conf: 50, attr: 50 };
-function loadLooks() { try { const o = JSON.parse(store.get('yv-looks') || '{}'); const r = {}; for (const k in LOOK_DEF) r[k] = Number.isFinite(o[k]) ? clamp(o[k], 0, 100) : LOOK_DEF[k]; return r; } catch (e) { return { ...LOOK_DEF }; } }
+const LOOK_DEF = { age: 70, conf: 40, tone: 30, gender: 0 };
+function loadLooks() { try { const o = JSON.parse(store.get('yv-looks2') || '{}'); const r = {}; for (const k in LOOK_DEF) r[k] = Number.isFinite(o[k]) ? clamp(o[k], -100, 100) : LOOK_DEF[k]; return r; } catch (e) { return { ...LOOK_DEF }; } }
 state.looks = loadLooks();
+const BOOST = 1.6; // v10: the far end is 1.6x the v9 maximum (Yong: "magnify the effects")
 function base() {
-  const T = typical(), y = state.looks.young / 100, c = state.looks.conf / 100, a = state.looks.attr / 100;
+  const T = typical(), L = state.looks, a = L.age / 100, c = L.conf / 100, k = L.tone / 100, g = L.gender / 100;
+  let pitch = 0, formant = 0, wobble = 0, clarity = 0, texture = 0;
+  if (a > 0) { pitch += BOOST * a * T.pitch; formant += BOOST * a * T.formant; wobble += BOOST * a * T.wobble; clarity += BOOST * a * T.clarity; texture = BOOST * a * T.texture; }
+  if (a < 0) { const s = -a; pitch -= 1.5 * s; formant -= 6 * s; wobble += 40 * s; clarity -= 2.5 * s; texture = 1.0 * s; }
+  wobble += c >= 0 ? -45 * c : -60 * c; clarity += 2 * c;           // confident: steadier, less breathy
+  clarity += k >= 0 ? 3 * k : 4 * k; if (k > 0 && a >= 0) texture = Math.max(texture, 0.6 * k); // clear: smoother
+  pitch += 4 * g; formant += 10 * g;                                 // feminine: higher and smaller; masculine: lower and bigger
   return {
-    pitch: r1(y * T.pitch), formant: r1(y * T.formant),
-    wobble: Math.round(clamp(y * T.wobble - 30 * c - 10 * a, -40, 40)),
-    clarity: r1(clamp(y * T.clarity + 1.2 * c + 1.8 * a, -4, 4)),
-    texture: r1(Math.max(y * T.texture, direction() === 'younger' ? 0.5 * a : 0) * 100) / 100,
+    pitch: r1(clamp(pitch, -6, 6)), formant: r1(clamp(formant, -12, 16)),
+    wobble: Math.round(clamp(wobble, -60, 80)), clarity: r1(clamp(clarity, -6, 6)),
+    texture: Math.round(clamp(texture, 0, 1.5) * 100) / 100,
   };
 }
 const val = (k) => state.over[k] ?? base()[k];
@@ -149,22 +156,29 @@ METRICS.forEach((m) => {
   inp.addEventListener('input', () => { state.over[m.id] = +inp.value; $(`o_${m.id}`).textContent = fmtVal(m, +inp.value); });
   inp.addEventListener('change', render);
 });
-// Look strength as a word instead of a percent (Yong: '%' was unclear)
-const lvWord = (v) => t(v <= 0 ? 'lvOff' : v < 35 ? 'lvLight' : v < 70 ? 'lvMed' : 'lvStrong');
+// Look strength as a word instead of a percent (Yong: '%' was unclear); the side is named by the end word.
+const lvWord = (v) => { const m = Math.abs(v); return m === 0 ? t('lvOff') : t(m < 35 ? 'lvLight' : m < 70 ? 'lvMed' : 'lvStrong'); };
+const lookSay = (l, v) => v === 0 ? t('lvOff') : `${lvWord(v)} · ${t(v > 0 ? l.r : l.l)}`;
+function showLook(l) {
+  const v = state.looks[l.id], row = $(`l_${l.id}`).closest('.look');
+  $(`lo_${l.id}`).textContent = lvWord(v);
+  $(`l_${l.id}`).setAttribute('aria-valuetext', lookSay(l, v));
+  row.querySelector('.e-l').classList.toggle('on', v < 0); row.querySelector('.e-r').classList.toggle('on', v > 0);
+}
 LOOKS.forEach((l) => {
-  const row = document.createElement('div'); row.className = 'metric look';
+  const row = document.createElement('div'); row.className = 'look';
   row.innerHTML = `<span class="ico" style="background:${l.tint}" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1a20" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${l.icon}"/></svg></span>`
-    + `<label for="l_${l.id}" data-i18n="l_${l.id}"></label><span class="imp"></span>`
-    + `<input type="range" id="l_${l.id}" min="0" max="100" step="5">`
+    + `<div class="bip"><input type="range" id="l_${l.id}" min="-100" max="100" step="5" data-i18n-aria="l_${l.id}">`
+    + `<div class="ends" aria-hidden="true"><span class="e-l" data-i18n="${l.l}"></span><span class="e-r" data-i18n="${l.r}"></span></div></div>`
     + `<output id="lo_${l.id}" for="l_${l.id}"></output>`
     + `<button class="info" type="button" data-info="info_l_${l.id}" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>`;
   $('looks').appendChild(row);
   const inp = row.querySelector('input');
-  inp.addEventListener('input', () => { state.looks[l.id] = +inp.value; $(`lo_${l.id}`).textContent = lvWord(+inp.value); });
-  inp.addEventListener('change', () => { store.set('yv-looks', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
+  inp.addEventListener('input', () => { let v = +inp.value; if (Math.abs(v) <= 5) v = 0; state.looks[l.id] = v; showLook(l); });
+  inp.addEventListener('change', () => { inp.value = state.looks[l.id]; store.set('yv-looks2', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
 });
 function showMetrics() {
-  LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; $(`lo_${l.id}`).textContent = lvWord(state.looks[l.id]); });
+  LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; showLook(l); });
   METRICS.forEach((m) => {
     const v = val(m.id), lv = impact(m.id);
     $(`m_${m.id}`).value = v; $(`o_${m.id}`).textContent = fmtVal(m, v);
@@ -285,7 +299,7 @@ async function render() {
         voice: state.voice, age_band: BAND_EN[state.age], target_band: BAND_EN[state.target], direction: dir,
         used_old_recording: state.old ? 'yes' : 'no', old_f0_median: state.old ? Math.round(state.old.f0med) : '',
         old_wobble_st: state.old ? r1(state.old.wobble * 100) / 100 : '', old_hnr_db: state.old ? r1(state.old.hnr) : '',
-        look_younger: state.looks.young, look_confident: state.looks.conf, look_attractive: state.looks.attr,
+        look_age: state.looks.age, look_confidence: state.looks.conf, look_tone: state.looks.tone, look_gender: state.looks.gender,
         pitch_st: v.pitch, steadiness_pct: v.wobble, formant_pct: v.formant, clarity_db: v.clarity, texture: v.texture,
         typical_pitch_st: T.pitch, typical_steadiness_pct: T.wobble, typical_formant_pct: T.formant, typical_clarity_db: T.clarity,
         changed_by_user: Object.keys(state.over).join(' '), cues: JSON.stringify(state.cues), lang: LANG,
