@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.4';
+const VERSION = 'poc-10.5';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -551,6 +551,10 @@ async function showCount() {
   $('rsCount').textContent = t('tries', { n }); $('rsSend').disabled = $('rsSendNo').disabled = !n;
 }
 $('rsSwitch').onclick = () => { Research.setOptIn(!Research.optedIn); showCount(); };
+// Yong's research inbox: a Google Apps Script web app that writes rows to his Sheet and audio to his Drive.
+// Empty = no inbox yet, so Send uses the phone's share sheet. localStorage 'yv-inbox' overrides it (for testing).
+const INBOX_URL = '';
+const inboxUrl = () => store.get('yv-inbox') || INBOX_URL;
 let outbox = null; // { zip, files } built before the confirm tap
 async function openReview(withAudio) {
   try {
@@ -558,12 +562,13 @@ async function openReview(withAudio) {
     if (!rows) return toast(t('rsEmpty'));
     const stem = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}`;
     const loose = files.map(f => f.name === 'log.csv' ? new File([f], `${stem}.csv`, { type: 'text/csv' }) : f);
-    outbox = { zip: new File([blob], `${stem}${withAudio ? '' : '-no-audio'}.zip`, { type: 'application/zip' }), parts: splitParts(loose), i: 0 };
+    outbox = { zip: new File([blob], `${stem}${withAudio ? '' : '-no-audio'}.zip`, { type: 'application/zip' }), parts: splitParts(loose), i: 0,
+      wavs: loose.filter(f => f.name.endsWith('.wav')) };
     sendLabel();
     const rv = await Research.review(withAudio);
     $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
     $('rvId').textContent = t('rvId', { id: Research.device }) + ' · ' + t('version', { v: VERSION });
-    $('rvCsv').textContent = rv.csv;
+    $('rvCsv').textContent = rv.csv; outbox.rows = rv.rows;
     const tb = $('rvRows'); tb.innerHTML = '';
     const hm = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const play = (k) => rv.keys.has(k) ? `<button type="button" class="rv-play" data-key="${k}">${t('rvPlay')}</button>` : '';
@@ -612,10 +617,32 @@ function splitParts(files) {
 }
 function sendLabel() {
   const o = outbox; if (!o) return;
+  if (inboxUrl()) { $('rvOk').textContent = t('rvOk'); return; }
   $('rvOk').textContent = o.parts.length > 1 ? t('rvPart', { i: o.i + 1, n: o.parts.length }) : t('rvOk');
+}
+// Upload to the inbox in batches of about 6 MB of audio (base64 adds a third; Apps Script takes up to 50 MB).
+const b64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+async function upload(o) {
+  const batches = [[]]; let bytes = 0;
+  for (const f of o.wavs) { if (bytes + f.size > 6 * 1048576 && batches[batches.length - 1].length) { batches.push([]); bytes = 0; } batches[batches.length - 1].push(f); bytes += f.size; }
+  for (let i = 0; i < batches.length; i++) {
+    $('rvOk').textContent = t('rvUploading', { i: i + 1, n: batches.length });
+    const files = []; for (const f of batches[i]) files.push({ name: f.name, b64: await b64(f) });
+    const body = JSON.stringify({ device: Research.device, version: VERSION, rows: i === 0 ? o.rows : [], files });
+    const res = await fetch(inboxUrl(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body }); // text/plain: no CORS preflight
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
+  }
 }
 $('rvOk').addEventListener('click', () => {
   const o = outbox; if (!o) return;
+  if (inboxUrl()) {
+    $('rvOk').disabled = true;
+    upload(o).then(() => { outbox = null; $('review').close(); toast(t('rvSent')); })
+      .catch((e) => { outbox = null; $('review').close(); saveZip(o.zip); toast(t('rvUpFail', { e: e.message, f: o.zip.name }), true); })
+      .finally(() => { $('rvOk').disabled = false; });
+    return;
+  }
   const files = o.parts[o.i];
   let ok = false; try { ok = !!(navigator.canShare && navigator.canShare({ files })); } catch (e) {}
   const giveUp = () => { outbox = null; $('review').close(); saveZip(o.zip); };
