@@ -13,7 +13,7 @@ first visit it works in airplane mode and can be added to the home screen on iPh
 - voicecore.js — the transform (port of rejuvenate.py) + WORLD wasm wrapper
 - world.wasm — WORLD (harvest, cheaptrick, d4c, synthesis), built with wasm-src/build.sh (plain clang, no Emscripten)
 - sw.js, manifest.webmanifest, icons — offline cache and home-screen install
-- sample.wav — MTG sms-tools-materials singing clip, CC BY 4.0
+- (sample.wav removed in poc-10.4; the app no longer ships a demo voice)
 
 ## Checks (2026-11-10)
 - Same input as desktop: younger 0.6 and 1.0 match rejuvenate.py to ~210 dB SNR (bit-identical in practice); through the browser UI incl. 16-bit WAV output: 74 dB SNR.
