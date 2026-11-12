@@ -231,6 +231,8 @@ const STR = {
     rsSaved: "Saved {f} to your Downloads. Attach it to an email or message to send it.",
     rvPart: "Send part {i} of {n}",
     rvSent: "Sent. Thank you!",
+    rvUploading: "Sending {i} of {n}…",
+    rvUpFail: "Couldn't upload ({e}). Saved {f} to your Downloads instead; attach it to an email to send it.",
   },
 
   ko: {
@@ -456,6 +458,8 @@ const STR = {
     rsSaved: "{f} 파일을 다운로드 폴더에 저장했습니다. 이메일이나 메시지에 첨부해 보내 주세요.",
     rvPart: "{n}개 중 {i}번째 보내기",
     rvSent: "보냈습니다. 감사합니다!",
+    rvUploading: "보내는 중 {i}/{n}…",
+    rvUpFail: "업로드하지 못했습니다({e}). 대신 {f} 파일을 다운로드 폴더에 저장했습니다. 이메일에 첨부해 보내 주세요.",
   },
 
   ja: {
@@ -681,6 +685,8 @@ const STR = {
     rsSaved: "{f} をダウンロードに保存しました。メールやメッセージに添付して送ってください。",
     rvPart: "{n}回中{i}回目を送る",
     rvSent: "送信しました。ありがとうございます！",
+    rvUploading: "送信中 {i}/{n}…",
+    rvUpFail: "アップロードできませんでした（{e}）。代わりに {f} をダウンロードに保存しました。メールに添付して送ってください。",
   },
 
   zh: {
@@ -906,6 +912,8 @@ const STR = {
     rsSaved: "已将 {f} 保存到“下载”。请把它作为附件通过邮件或消息发送。",
     rvPart: "发送第 {i} 部分（共 {n} 部分）",
     rvSent: "已发送，谢谢！",
+    rvUploading: "正在发送 {i}/{n}…",
+    rvUpFail: "上传失败（{e}）。已将 {f} 保存到下载文件夹，请附在邮件里发送。",
   },
 
   fr: {
@@ -1131,6 +1139,8 @@ const STR = {
     rsSaved: "{f} est enregistré dans vos Téléchargements. Joignez-le à un e-mail ou un message pour l’envoyer.",
     rvPart: "Envoyer la partie {i} sur {n}",
     rvSent: "Envoyé. Merci !",
+    rvUploading: "Envoi {i} sur {n}…",
+    rvUpFail: "Envoi impossible ({e}). {f} a été enregistré dans vos Téléchargements ; joignez-le à un e-mail.",
   },
 
   es: {
@@ -1356,6 +1366,8 @@ const STR = {
     rsSaved: "Se guardó {f} en Descargas. Adjúntalo a un correo o mensaje para enviarlo.",
     rvPart: "Enviar parte {i} de {n}",
     rvSent: "Enviado. ¡Gracias!",
+    rvUploading: "Enviando {i} de {n}…",
+    rvUpFail: "No se pudo subir ({e}). Se guardó {f} en Descargas; adjúntalo a un correo para enviarlo.",
   },
 };
 
