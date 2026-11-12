@@ -201,7 +201,7 @@
     const P = direction === 'younger' ? YOUNGER : OLDER;
     const s = +strength, older = direction === 'older';
     const rng = makeRng(seed + 1);
-    const lerp = (target, slider) => 1 + (target - 1) * s * slider;
+    const lerp = (target, slider) => Math.max(0.02, 1 + (target - 1) * s * slider); // never flip a cue past zero at high strength
     const f0 = Float64Array.from(f0In), sp = Float64Array.from(spIn), ap = Float64Array.from(apIn);
     const nf = f0.length;
     const freqs = new Float64Array(nb);

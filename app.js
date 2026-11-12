@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10';
+const VERSION = 'poc-10.1';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -57,11 +57,11 @@ const DATA = {
   hnr: [[9.4, 9.9, 9.1, 8.9, 8.6, 9.1], [12.5, 12.5, 11.2, 11.3, 12.3, 12.0]],
 };
 const METRICS = [
-  { id: 'pitch', min: -6, max: 6, step: 0.1, unit: ' st', tint: '#d9efe9', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
-  { id: 'wobble', min: -60, max: 80, step: 1, unit: ' %', tint: '#e6e9f7', icon: 'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0' },
-  { id: 'formant', min: -12, max: 16, step: 0.5, unit: ' %', tint: '#f7e9d6', icon: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0' },
-  { id: 'clarity', min: -6, max: 6, step: 0.1, unit: ' dB', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
-  { id: 'texture', min: 0, max: 1.5, step: 0.05, unit: '', tint: '#efe9dc', icon: 'M5 6h.01M10 6h.01M15 6h.01M19 6h.01M7 11h.01M12 11h.01M17 11h.01M5 16h.01M10 16h.01M15 16h.01M19 16h.01' },
+  { id: 'pitch', min: -12, max: 12, step: 0.1, unit: ' st', tint: '#d9efe9', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
+  { id: 'wobble', min: -90, max: 150, step: 1, unit: ' %', tint: '#e6e9f7', icon: 'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0' },
+  { id: 'formant', min: -20, max: 25, step: 0.5, unit: ' %', tint: '#f7e9d6', icon: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0' },
+  { id: 'clarity', min: -10, max: 10, step: 0.1, unit: ' dB', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
+  { id: 'texture', min: 0, max: 2, step: 0.05, unit: '', tint: '#efe9dc', icon: 'M5 6h.01M10 6h.01M15 6h.01M19 6h.01M7 11h.01M12 11h.01M17 11h.01M5 16h.01M10 16h.01M15 16h.01M19 16h.01' },
 ];
 const bandFrom = (k, d) => { const v = +store.get(k); return Number.isInteger(v) && v >= 0 && v <= 5 && store.get(k) != null ? v : d; };
 
@@ -103,22 +103,23 @@ const LOOKS = [
   { id: 'tone', l: 'e_breathy', r: 'e_clear', tint: '#f3e3ef', icon: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6' },
   { id: 'gender', l: 'e_masc', r: 'e_fem', tint: '#f7e9d6', icon: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3z' },
 ];
-const LOOK_DEF = { age: 70, conf: 40, tone: 30, gender: 0 };
+const LOOK_DEF = { age: 50, conf: 40, tone: 30, gender: 0 };
 function loadLooks() { try { const o = JSON.parse(store.get('yv-looks2') || '{}'); const r = {}; for (const k in LOOK_DEF) r[k] = Number.isFinite(o[k]) ? clamp(o[k], -100, 100) : LOOK_DEF[k]; return r; } catch (e) { return { ...LOOK_DEF }; } }
 state.looks = loadLooks();
-const BOOST = 1.6; // v10: the far end is 1.6x the v9 maximum (Yong: "magnify the effects")
+const BOOST = 3; // v10.1: the far end is 3x the v9 maximum (Yong: "make it 3x")
+const K = BOOST / 1.6; // the other sliders were sized for 1.6x in v10
 function base() {
   const T = typical(), L = state.looks, a = L.age / 100, c = L.conf / 100, k = L.tone / 100, g = L.gender / 100;
   let pitch = 0, formant = 0, wobble = 0, clarity = 0, texture = 0;
   if (a > 0) { pitch += BOOST * a * T.pitch; formant += BOOST * a * T.formant; wobble += BOOST * a * T.wobble; clarity += BOOST * a * T.clarity; texture = BOOST * a * T.texture; }
-  if (a < 0) { const s = -a; pitch -= 1.5 * s; formant -= 6 * s; wobble += 40 * s; clarity -= 2.5 * s; texture = 1.0 * s; }
-  wobble += c >= 0 ? -45 * c : -60 * c; clarity += 2 * c;           // confident: steadier, less breathy
-  clarity += k >= 0 ? 3 * k : 4 * k; if (k > 0 && a >= 0) texture = Math.max(texture, 0.6 * k); // clear: smoother
-  pitch += 4 * g; formant += 10 * g;                                 // feminine: higher and smaller; masculine: lower and bigger
+  if (a < 0) { const s = -a * K; pitch -= 1.5 * s; formant -= 6 * s; wobble += 40 * s; clarity -= 2.5 * s; texture = 1.0 * s; }
+  wobble += K * (c >= 0 ? -45 * c : -60 * c); clarity += K * 2 * c;           // confident: steadier, less breathy
+  clarity += K * (k >= 0 ? 3 * k : 4 * k); if (k > 0 && a >= 0) texture = Math.max(texture, K * 0.6 * k); // clear: smoother
+  pitch += K * 4 * g; formant += K * 10 * g;                                 // feminine: higher and smaller; masculine: lower and bigger
   return {
-    pitch: r1(clamp(pitch, -6, 6)), formant: r1(clamp(formant, -12, 16)),
-    wobble: Math.round(clamp(wobble, -60, 80)), clarity: r1(clamp(clarity, -6, 6)),
-    texture: Math.round(clamp(texture, 0, 1.5) * 100) / 100,
+    pitch: r1(clamp(pitch, -12, 12)), formant: r1(clamp(formant, -20, 25)),
+    wobble: Math.round(clamp(wobble, -90, 150)), clarity: r1(clamp(clarity, -10, 10)),
+    texture: Math.round(clamp(texture, 0, 2) * 100) / 100,
   };
 }
 const val = (k) => state.over[k] ?? base()[k];
