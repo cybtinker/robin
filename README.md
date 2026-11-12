@@ -74,3 +74,11 @@ They mix into the five fine-tune values (pitch, steadiness, voice size, clarity,
 
 Defaults are 80 / 50 / 50 %. The age tiles, old recording, Male/Female and the five sliders moved
 into the **Fine-tune** dialog. The research log adds look_younger, look_confident and look_attractive.
+
+## poc-10: two-way makeup sliders
+
+Four sliders, each from −100 (left) to +100 (right), 0 = off: Older ↔ Younger, Timid ↔ Confident,
+Breathy ↔ Clear, Masculine ↔ Feminine. The far end is 1.6× the v9 maximum. Feminine = +4 st and +10 %
+voice size at full; Older = −1.5 st, −6 %, +40 % wobble, −2.5 dB clarity and older texture. Defaults
+70 / 40 / 30 / 0. Fine-tune ranges widened (pitch ±6 st, voice size −12..16 %, steadiness −60..80 %,
+clarity ±6 dB). Logged as look_age, look_confidence, look_tone, look_gender.

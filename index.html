@@ -147,7 +147,14 @@ h1 { margin: 0; font: 700 22px/1.1 var(--display); }
 .makeup { display: flex; flex-direction: column; gap: 6px; }
 .mk-head { display: flex; align-items: center; gap: 8px; }
 .mk-head b { flex: 1; font-size: 14px; }
-.metric .imp:empty { width: 14px; }
+.look { display: grid; grid-template-columns: 22px minmax(0, 1fr) 54px 22px; gap: 6px; align-items: center; min-height: 40px; }
+.look .ico { width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; }
+.bip { position: relative; min-width: 0; }
+.bip input { width: 100%; margin: 0; }
+.bip::before { content: ""; position: absolute; left: 50%; top: 2px; width: 2px; height: 6px; margin-left: -1px; background: var(--muted); opacity: .6; border-radius: 1px; pointer-events: none; }
+.ends { display: flex; justify-content: space-between; font-size: 11px; line-height: 1.1; color: var(--muted); }
+.ends .on { color: var(--young); font-weight: 700; }
+.look output { font-size: 12px; font-weight: 700; color: var(--young); text-align: right; white-space: nowrap; }
 input[type=range] { width: 100%; margin: 0; accent-color: var(--young); height: 28px; }
 
 /* help */
