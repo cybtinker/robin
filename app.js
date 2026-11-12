@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.5';
+const VERSION = 'poc-10.6';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -111,13 +111,15 @@ const K = BOOST / 1.6; // the other sliders were sized for 1.6x in v10
 function base() {
   const T = typical(), L = state.looks, a = L.age / 100, c = L.conf / 100, k = L.tone / 100, g = L.gender / 100;
   let pitch = 0, formant = 0, wobble = 0, clarity = 0, texture = 0;
-  if (a > 0) { pitch += BOOST * a * T.pitch; formant += BOOST * a * T.formant; wobble += BOOST * a * T.wobble; clarity += BOOST * a * T.clarity; texture = BOOST * a * T.texture; }
+  const fem = state.voice === 'female'; // women's voices already sit high: stacking shifts made them sound like chipmunks (Yong)
+  if (a > 0) { pitch += a * clamp(BOOST * T.pitch, -3, fem ? 2.5 : 3); formant += a * clamp(BOOST * T.formant, -8, fem ? 6 : 10); wobble += BOOST * a * T.wobble; clarity += BOOST * a * T.clarity; texture = BOOST * a * T.texture; }
   if (a < 0) { const s = -a * K; pitch -= 1.5 * s; formant -= 6 * s; wobble += 40 * s; clarity -= 2.5 * s; texture = 1.0 * s; }
   wobble += K * (c >= 0 ? -45 * c : -60 * c); clarity += K * 2 * c;           // confident: steadier, less breathy
   clarity += K * (k >= 0 ? 3 * k : 4 * k); if (k > 0 && a >= 0) texture = Math.max(texture, K * 0.6 * k); // clear: smoother
-  pitch += K * 4 * g; formant += K * 10 * g;                                 // feminine: higher and smaller; masculine: lower and bigger
+  const gk = g > 0 ? (fem ? 0.35 : 1) : (fem ? 1 : 0.35); // push a voice away from its own sex at full strength, toward it gently
+  pitch += gk * K * 4 * g; formant += gk * K * 10 * g;                                 // feminine: higher and smaller; masculine: lower and bigger
   return {
-    pitch: r1(clamp(pitch, -12, 12)), formant: r1(clamp(formant, -20, 25)),
+    pitch: r1(clamp(pitch, -12, fem ? 5 : 12)), formant: r1(clamp(formant, -20, fem ? 12 : 25)),
     wobble: Math.round(clamp(wobble, -90, 150)), clarity: r1(clamp(clarity, -10, 10)),
     texture: Math.round(clamp(texture, 0, 2) * 100) / 100,
   };
@@ -319,7 +321,7 @@ async function loadTake(pcm, sr, label) {
     state.timings = { analyse: r.ms, chunks: r.chunks };
     $('sAna').textContent = fmtS(r.ms);
     state.feat = { f0med: r.f0med || 0, wobble: r.wobble || 0, hnr: r.hnr || 0 };
-    if (!state.voicePicked && r.f0med) state.voice = r.f0med > 280 ? 'female' : 'male'; // singing; ~160 Hz for speech
+    if (!state.voicePicked && r.f0med) state.voice = r.f0med > 200 ? 'female' : 'male'; // low on purpose: a woman read as male got chipmunk-strength shifts
     Research.newTake(pcm, sr, { version: VERSION, source: label === 'recording' || label === 'sample' ? label : 'file', /* file names are never sent */
       features: { f0_median: Math.round(r.f0med || 0), wobble_st: r1(r.wobble * 100) / 100, hnr_db: r1(r.hnr || 0), analyse_ms: Math.round(r.ms) } }, wavBlob);
   } catch (e) {
