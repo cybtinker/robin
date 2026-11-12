@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-8.1';
+const VERSION = 'poc-8.2';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -393,7 +393,7 @@ function refreshLang() {
   applyI18n();
   langAuto.textContent = `${t('th_auto')} · ${LANGS.find(([c]) => c === deviceLang())[1]}`;
   document.title = t('appName');
-  $('ver').textContent = t('version', { v: VERSION });
+  $('ver').textContent = t('version', { v: VERSION }); $('verBadge').textContent = VERSION.replace('poc-', 'v');
   $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
   fillBands(); fillThemes(); showMetrics(); showOld(); showCount();
   if (!rec && !state.busy) idleStatus();
@@ -442,10 +442,11 @@ async function openReview(withAudio) {
     if (!rows) return toast(t('rsEmpty'));
     const stem = `fledgling-research-${Research.device.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}`;
     const loose = files.map(f => f.name === 'log.csv' ? new File([f], `${stem}.csv`, { type: 'text/csv' }) : f);
-    outbox = { zip: new File([blob], `${stem}${withAudio ? '' : '-no-audio'}.zip`, { type: 'application/zip' }), files: loose };
+    outbox = { zip: new File([blob], `${stem}${withAudio ? '' : '-no-audio'}.zip`, { type: 'application/zip' }), parts: splitParts(loose), i: 0 };
+    sendLabel();
     const rv = await Research.review(withAudio);
     $('rvFiles').textContent = rv.files ? t('rvFiles', { n: rv.files, mb: (rv.bytes / 1048576).toFixed(1) }) : t('rvNoAudio');
-    $('rvId').textContent = t('rvId', { id: Research.device });
+    $('rvId').textContent = t('rvId', { id: Research.device }) + ' · ' + t('version', { v: VERSION });
     $('rvCsv').textContent = rv.csv;
     const tb = $('rvRows'); tb.innerHTML = '';
     const hm = (iso) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -482,12 +483,31 @@ function saveZip(zip) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = zip.name; a.click();
   toast(t('rsSaved', { f: zip.name }));
 }
+// Android Chrome also refuses a share of more than 10 files or about 50 MB ("Permission denied"),
+// so a big log goes out in parts, one tap each: part 1 has the CSV, the rest carry the recordings.
+function splitParts(files) {
+  const parts = []; let cur = [], bytes = 0;
+  for (const f of files) {
+    if (cur.length && (cur.length >= 10 || bytes + f.size > 40 * 1048576)) { parts.push(cur); cur = []; bytes = 0; }
+    cur.push(f); bytes += f.size;
+  }
+  if (cur.length) parts.push(cur);
+  return parts;
+}
+function sendLabel() {
+  const o = outbox; if (!o) return;
+  $('rvOk').textContent = o.parts.length > 1 ? t('rvPart', { i: o.i + 1, n: o.parts.length }) : t('rvOk');
+}
 $('rvOk').addEventListener('click', () => {
-  if (!outbox) return;
-  const { zip, files } = outbox; outbox = null;
+  const o = outbox; if (!o) return;
+  const files = o.parts[o.i];
   let ok = false; try { ok = !!(navigator.canShare && navigator.canShare({ files })); } catch (e) {}
-  if (!ok) return saveZip(zip);
-  navigator.share({ files, title: 'Fledgling research log' }).catch((e) => { if (e.name !== 'AbortError') saveZip(zip); });
+  const giveUp = () => { outbox = null; $('review').close(); saveZip(o.zip); };
+  if (!ok) return giveUp();
+  navigator.share({ files, title: `Fledgling research log ${o.i + 1}/${o.parts.length}` }).then(() => {
+    o.i++;
+    if (o.i >= o.parts.length) { outbox = null; $('review').close(); toast(t('rvSent')); } else sendLabel();
+  }).catch((e) => { if (e.name !== 'AbortError') giveUp(); });
 });
 $('rsDelAudio').onclick = async () => { await Research.clearAudio(); toast(t('rsAudioDeleted')); };
 $('rsDel').onclick = async () => { await Research.clear(); toast(t('rsDeleted')); showCount(); };

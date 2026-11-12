@@ -87,6 +87,7 @@ header::after { content: ""; position: absolute; right: 0; top: -12px; width: 13
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) .bird { filter: drop-shadow(0 0 1px rgba(255,255,255,.55)); } }
 .brand { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 h1 { margin: 0; font: 700 22px/1.1 var(--display); }
+.verbadge { font: 600 10px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 4px; vertical-align: middle; }
 .tagline { font-size: 12px; line-height: 1.25; color: var(--young); font-weight: 600; }
 .icobtn { position: relative; width: 40px; height: 40px; flex: none; border-radius: 20px; border: 1px solid var(--line); background: var(--panel);
   display: grid; place-items: center; overflow: hidden; cursor: pointer; padding: 0; color: var(--ink); }
@@ -233,7 +234,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
     <g><ellipse cx="114" cy="24" rx="3" ry="2.3" transform="rotate(-20 114 24)"/><rect x="116" y="14" width="1.3" height="10"/></g>
   </g>
 </svg>
-    <div class="brand"><h1 data-i18n="appName">Fledgling</h1><span class="tagline" data-i18n="tagline">Hear yourself sing younger.</span></div>
+    <div class="brand"><h1><span data-i18n="appName">Fledgling</span> <small class="verbadge" id="verBadge"></small></h1><span class="tagline" data-i18n="tagline">Hear yourself sing younger.</span></div>
     <label class="icobtn" title="Language"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
       <select id="langSel" data-i18n-aria="langLabel" aria-label="Language"></select></label>
     <label class="icobtn" title="Theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c-1 2-3 3-5 3a5 5 0 0 1-5-5c0-3 2-5 3-7h-2z"/><circle cx="8" cy="12" r="1.2" fill="#d6402e" stroke="none"/><circle cx="11" cy="8" r="1.2" fill="#e0a050" stroke="none"/><circle cx="11" cy="16" r="1.2" fill="#1f7a6d" stroke="none"/></svg>
@@ -348,7 +349,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
     <div class="rv-table"><table><thead><tr><th data-i18n="rvTime"></th><th data-i18n="rvSettings"></th><th></th></tr></thead><tbody id="rvRows"></tbody></table></div>
     <details><summary data-i18n="rvShowCsv"></summary><pre id="rvCsv"></pre></details>
     <audio id="rvAudio" hidden></audio>
-    <div class="row end"><button class="btn" value="cancel" data-i18n="rvCancel">Cancel</button><button class="btn primary" value="ok" id="rvOk" data-i18n="rvOk">Looks fine, send it</button></div>
+    <div class="row end"><button class="btn" value="cancel" data-i18n="rvCancel">Cancel</button><button class="btn primary" type="button" id="rvOk">Looks fine, send it</button></div>
   </form>
 </dialog>
 <script src="i18n.js"></script>
