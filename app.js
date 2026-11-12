@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.3';
+const VERSION = 'poc-10.4';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -444,10 +444,6 @@ $('fileIn').addEventListener('change', async (e) => {
   catch (err) { toast(t('errOpen'), true); }
   e.target.value = '';
 });
-$('sampleBtn').onclick = async () => {
-  try { getCtx().resume(); const { pcm, sr } = await decodeToMono(await (await fetch('sample.wav')).arrayBuffer()); loadTake(pcm, sr, 'sample'); }
-  catch (err) { toast(t('errSample'), true); }
-};
 // An old recording of the user: measure their pitch, steadiness and clarity back then.
 $('oldIn').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;

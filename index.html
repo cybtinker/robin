@@ -266,13 +266,12 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
       <i class="stop"></i>
     </button>
     <div class="sing-mid">
-      <p class="sing-line" id="singLine" aria-live="polite"><span id="singText" data-i18n="singLine">Sing or speak a few lines</span><small id="singSub"></small></p>
+      <p class="sing-line" id="singLine" aria-live="polite"><span id="singText" data-i18n="singLine">Tap the mic and record</span><small id="singSub"></small></p>
       <div class="meter" id="meter" hidden><i id="level"></i></div>
       <div class="bar" id="prog" hidden><i id="progBar"></i></div>
       <div class="two" id="singBtns">
         <label class="small-btn" for="fileIn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--young)" stroke-width="2" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/></svg><span data-i18n="openFileShort">Open file</span></label>
         <input type="file" id="fileIn" class="vis" accept="audio/*,video/*,.m4a,.wav,.mp3,.aac,.mp4,.mov">
-        <button class="small-btn" type="button" id="sampleBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="#e0a050" aria-hidden="true"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg><span data-i18n="sampleShort">Try a sample</span></button>
       </div>
     </div>
     <button class="info" type="button" data-info="info_rec" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>
@@ -378,7 +377,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
     <div class="row"><button class="btn" type="button" id="copyBtn" data-i18n="copy">Copy speed report</button><span class="hint" id="copyNote"></span></div>
     <footer>
       <p id="foot1" data-i18n="foot1"></p>
-      <p data-i18n="foot2"></p>
       <p><span id="rsId"></span> · <span id="ver"></span></p>
     </footer>
     <div class="row end"><button class="btn primary" value="close" data-i18n="done">Done</button></div>
