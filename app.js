@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-8.2';
+const VERSION = 'poc-8.3';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -80,9 +80,12 @@ function typical() {
   const T = {
     pitch: r1(DATA.pitch[g][b] - DATA.pitch[g][a]),
     wobble: Math.round((DATA.wob[g][b] / DATA.wob[g][a] - 1) * 100),
-    formant: r1(DATA.form[g][b] - DATA.form[g][a]),
+    // Measured formants barely move with age, but a slightly smaller-sounding voice is the strongest
+    // "younger" cue listeners hear (blind test, poc-2..7: about +5 % for 50s to 20s). So the formant
+    // default is perceptual: +1.7 % per band younger (max +8 %), -1.3 % per band older, plus the data.
+    formant: r1(clamp(DATA.form[g][b] - DATA.form[g][a] + (b < a ? 1.7 : 1.3) * (a - b), -8, 8)),
     clarity: r1(DATA.hnr[g][b] - DATA.hnr[g][a]),
-    texture: a === b ? 0 : 0.6,
+    texture: a === b ? 0 : r1(Math.min(0.9, 0.4 + 0.1 * Math.abs(a - b)) * 100) / 100,
   };
   const o = state.old, f = state.feat;
   if (o && f) {
@@ -98,7 +101,7 @@ function impact(k) {
   const v = Math.abs(typical()[k]); if (state.target === state.age) return 0;
   if (k === 'pitch') return v >= 1.5 ? 3 : v >= 0.5 ? 2 : 1;
   if (k === 'wobble') return v >= 15 ? 3 : v >= 7 ? 2 : 1;
-  if (k === 'formant') return v >= 1.5 ? 2 : 1;
+  if (k === 'formant') return v >= 4 ? 3 : v >= 1.5 ? 2 : 1;
   if (k === 'clarity') return v >= 1 ? 2 : 1;
   return 2;
 }
