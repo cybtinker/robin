@@ -1,13 +1,15 @@
-# Set up the Fledgling research inbox (about 10 minutes)
+# Set up the Fledgling research inbox (about 10 minutes, easiest on a computer)
 
-1. Go to sheets.new (signed in to your Google account). Name the sheet "Fledgling research".
-2. In the sheet: Extensions > Apps Script. Delete what is there and paste all of Code.gs. Save.
-3. Click Deploy > New deployment > gear icon > Web app.
-   - Description: Fledgling inbox
-   - Execute as: Me
-   - Who has access: Anyone
-   Click Deploy, then Authorize access and allow it (Google warns because it is your own unverified script: Advanced > Go to project).
-4. Copy the Web app URL (it ends in /exec) and send it in the thread. It is an address, not a password.
-5. Optional check: open the URL in a browser; it should say {"ok":true,"app":"Fledgling research inbox"}.
+1. Go to https://script.google.com (signed in to your Google account) and click **New project**.
+2. Delete what is in the editor, paste all of Code.gs, and click the save icon.
+3. Click **Deploy > New deployment**, then the gear icon > **Web app**.
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+   Click **Deploy**, then **Authorize access** and allow it. Google warns because it is your own unverified script: click Advanced > Go to project > Allow.
+4. Copy the **Web app URL** (it ends in /exec) and send it in the thread. It is an address, not a password.
 
-Tries appear in the "tries" tab. Audio appears in Google Drive > "Fledgling audio" > one folder per random tester ID.
+The first upload creates a sheet called "Fledgling research" in your Google Drive (tab "tries"),
+and recordings go to Drive > "Fledgling audio" > one folder per random tester ID.
+
+(Already made a sheet? Extensions > Apps Script inside it works too; the script then writes to that sheet.
+If you don't see Extensions, the menus may be hidden: click the ^ arrow at the top right of the sheet.)

@@ -14,7 +14,7 @@ function doPost(e) {
     const device = String(body.device || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40);
     if (!device) return out({ ok: false, error: 'no device id' });
     let rows = (body.rows || []).slice(0, MAX_ROWS_PER_POST);
-    const sheet = SpreadsheetApp.getActive().getSheetByName('tries') || SpreadsheetApp.getActive().insertSheet('tries');
+    const book = book_(), sheet = book.getSheetByName('tries') || book.insertSheet('tries');
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
       let header = sheet.getLastRow() ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0] : ['received_at'];
@@ -47,6 +47,14 @@ function doPost(e) {
   }
 }
 
+// Works pasted into a sheet (Extensions > Apps Script) or as a stand-alone project at script.google.com,
+// where it creates a "Fledgling research" sheet in your Drive the first time and keeps using it.
+function book_() {
+  const active = SpreadsheetApp.getActive(); if (active) return active;
+  const p = PropertiesService.getScriptProperties(); let id = p.getProperty('SHEET_ID');
+  if (!id) { id = SpreadsheetApp.create('Fledgling research').getId(); p.setProperty('SHEET_ID', id); }
+  return SpreadsheetApp.openById(id);
+}
 function folder_(parent, name) { const it = parent.getFoldersByName(name); return it.hasNext() ? it.next() : parent.createFolder(name); }
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function doGet() { return out({ ok: true, app: 'Fledgling research inbox' }); }
