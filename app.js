@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-9.1';
+const VERSION = 'poc-9.2';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -149,6 +149,8 @@ METRICS.forEach((m) => {
   inp.addEventListener('input', () => { state.over[m.id] = +inp.value; $(`o_${m.id}`).textContent = fmtVal(m, +inp.value); });
   inp.addEventListener('change', render);
 });
+// Look strength as a word instead of a percent (Yong: '%' was unclear)
+const lvWord = (v) => t(v <= 0 ? 'lvOff' : v < 35 ? 'lvLight' : v < 70 ? 'lvMed' : 'lvStrong');
 LOOKS.forEach((l) => {
   const row = document.createElement('div'); row.className = 'metric look';
   row.innerHTML = `<span class="ico" style="background:${l.tint}" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1a20" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${l.icon}"/></svg></span>`
@@ -158,11 +160,11 @@ LOOKS.forEach((l) => {
     + `<button class="info" type="button" data-info="info_l_${l.id}" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>`;
   $('looks').appendChild(row);
   const inp = row.querySelector('input');
-  inp.addEventListener('input', () => { state.looks[l.id] = +inp.value; $(`lo_${l.id}`).textContent = inp.value + ' %'; });
+  inp.addEventListener('input', () => { state.looks[l.id] = +inp.value; $(`lo_${l.id}`).textContent = lvWord(+inp.value); });
   inp.addEventListener('change', () => { store.set('yv-looks', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
 });
 function showMetrics() {
-  LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; $(`lo_${l.id}`).textContent = state.looks[l.id] + ' %'; });
+  LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; $(`lo_${l.id}`).textContent = lvWord(state.looks[l.id]); });
   METRICS.forEach((m) => {
     const v = val(m.id), lv = impact(m.id);
     $(`m_${m.id}`).value = v; $(`o_${m.id}`).textContent = fmtVal(m, v);
