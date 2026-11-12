@@ -146,7 +146,9 @@ h1 { margin: 0; font: 700 22px/1.1 var(--display); }
 .metric .imp rect { fill: var(--line); } .metric .imp rect.on { fill: var(--young); }
 .makeup { display: flex; flex-direction: column; gap: 6px; }
 .mk-head { display: flex; align-items: center; gap: 8px; }
-.mk-head b { flex: 1; font-size: 14px; }
+.mk-head b { flex: 1; font-size: 14px; min-width: 0; }
+.prank[aria-pressed="true"] { background: var(--young); color: var(--panel); border-color: var(--young); }
+#looks.dim { opacity: .45; }
 .look { display: grid; grid-template-columns: 22px minmax(0, 1fr) 54px 22px; gap: 6px; align-items: center; min-height: 40px; }
 .look .ico { width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; }
 .bip { position: relative; min-width: 0; }
@@ -276,6 +278,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6h-4z" fill="var(--young)"/><rect x="8" y="9" width="8" height="12" rx="2" fill="var(--young)" opacity=".55"/><path d="M19 4l.7 1.4 1.4.7-1.4.7-.7 1.4-.7-1.4-1.4-.7 1.4-.7z" fill="#e0a050"/></svg>
       <b id="mkT" data-i18n="makeupTitle">Voice makeup</b>
       <button class="typical" type="button" id="tuneBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span data-i18n="tune">Fine-tune</span></button>
+      <button class="typical prank" type="button" id="prankBtn" aria-pressed="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2.5 4 2.5 4-2.5 4-2.5M9 9h.01M15 9h.01"/></svg><span id="prankTxt">Prank</span></button>
     </div>
     <div class="metrics" id="looks"></div>
   </section>

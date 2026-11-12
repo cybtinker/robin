@@ -263,6 +263,7 @@
       }
     }
     if (C.pitch_cents) { const k = Math.pow(2, C.pitch_cents / 1200); for (let i = 0; i < nf; i++) if (f0[i] > 0) f0[i] *= k; }
+    if (C.robot_hz > 0) for (let i = 0; i < nf; i++) if (f0[i] > 0) f0[i] = C.robot_hz; // prank: one flat note
 
     // --- shimmer
     const shK = Math.max(0, lerp(P.shimmer, C.shimmer));
