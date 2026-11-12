@@ -189,7 +189,7 @@
   function makeRng(seed) {
     let s = (seed >>> 0) || 0x9e3779b9;
     const u = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return (s + 0.5) / 4294967296; };
-    return { normal() { return Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u()); } };
+    return { uniform: u, normal() { return Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u()); } };
   }
   const randn = (rng, n) => { const a = new Float64Array(n); for (let i = 0; i < n; i++) a[i] = rng.normal(); return a; };
 
@@ -345,6 +345,28 @@
         return Math.pow(10, tDb * (0.5 - 0.5 * Math.cos(Math.PI * op)) / 10);
       });
       for (let i = 0; i < nf; i++) { const o = i * nb; for (let q = 0; q < nb; q++) sp[o + q] *= g[q]; }
+    }
+    // --- prank extras (all off unless set)
+    const dt = FRAME_MS / 1000;
+    if (C.invert || C.sway_st || C.vib_st || C.yodel) {
+      let med = 0; { const v = []; for (let i = 0; i < nf; i++) if (f0[i] > 0) v.push(Math.log2(f0[i])); v.sort((x, y) => x - y); med = v.length ? v[v.length >> 1] : 0; }
+      const yr = makeRng(seed + 7); let jump = 0, until = 0;
+      for (let i = 0; i < nf; i++) {
+        if (!(f0[i] > 0)) continue;
+        let o = Math.log2(f0[i]);
+        if (C.invert) o = 2 * med - o;                                         // upside-down melody
+        const tt = (i + seed * 3000) * dt;
+        if (C.sway_st) o += C.sway_st / 12 * Math.sin(2 * Math.PI * (C.sway_hz || 0.4) * tt); // seasick / bubbles
+        if (C.vib_st) o += C.vib_st / 12 * Math.sin(2 * Math.PI * 5.2 * tt);   // diva vibrato
+        if (C.yodel) { if (i >= until) { jump = yr.uniform() < 0.35 ? 1 : 0; until = i + Math.round(0.25 / dt + yr.uniform() * 0.3 / dt); } o += jump; } // octave jumps
+        f0[i] = Math.pow(2, o);
+      }
+    }
+    if (C.whisper) for (let i = 0; i < sp.length; i++) ap[i] = 1 - 1e-6;      // ghost: no pitch, all breath
+    if (C.band_lo || C.band_hi) {                                            // telephone / underwater filters on the envelope
+      const lo = C.band_lo || 0, hi = C.band_hi || sr;
+      const g = freqs.map(f => f < lo ? Math.pow(f / lo, 4) + 1e-4 : f > hi ? Math.pow(hi / f, 6) + 1e-4 : 1);
+      for (let i = 0; i < nf; i++) { const o = i * nb; for (let k = 0; k < nb; k++) sp[o + k] *= g[k]; }
     }
     return { f0, sp, ap };
   }
