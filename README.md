@@ -82,3 +82,10 @@ Breathy ↔ Clear, Masculine ↔ Feminine. The far end is 1.6× the v9 maximum (
 voice size at full; Older = −1.5 st, −6 %, +40 % wobble, −2.5 dB clarity and older texture. Defaults
 70 / 40 / 30 / 0. Fine-tune ranges widened (pitch ±6 st, voice size −12..16 %, steadiness −60..80 %,
 clarity ±6 dB). Logged as look_age, look_confidence, look_tone, look_gender.
+
+## poc-10.2: Prank button
+
+A Prank button next to Fine-tune cycles Chipmunk → Giant → Robot → Wobbly → back to the makeup.
+Presets are fixed fine-tune values; Robot adds a `robot_hz` cue (every voiced frame on the take's
+median pitch). Moving a makeup slider leaves prank mode. Logged as `prank`. Quiet renders are
+brought up toward the original's loudness.

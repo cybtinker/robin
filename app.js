@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.1';
+const VERSION = 'poc-10.2';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -176,7 +176,7 @@ LOOKS.forEach((l) => {
   $('looks').appendChild(row);
   const inp = row.querySelector('input');
   inp.addEventListener('input', () => { let v = +inp.value; if (Math.abs(v) <= 5) v = 0; state.looks[l.id] = v; showLook(l); });
-  inp.addEventListener('change', () => { inp.value = state.looks[l.id]; store.set('yv-looks2', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
+  inp.addEventListener('change', () => { if (state.prank) { state.prank = null; showPrank(); } inp.value = state.looks[l.id]; store.set('yv-looks2', JSON.stringify(state.looks)); state.over = {}; showMetrics(); render(); });
 });
 function showMetrics() {
   LOOKS.forEach((l) => { $(`l_${l.id}`).value = state.looks[l.id]; showLook(l); });
@@ -192,7 +192,7 @@ function showMetrics() {
   $('fxLabel').textContent = fxLabel();
   document.documentElement.classList.toggle('older', direction() === 'older');
 }
-const fxLabel = () => t('playMakeup');
+const fxLabel = () => state.prank ? t('pr_' + state.prank) : t('playMakeup');
 
 // fine-tune cues (Settings)
 const CUES = ['vibrato', 'jitter', 'shimmer', 'breath', 'tilt', 'clarity'];
@@ -214,6 +214,24 @@ $('vMale').onclick = () => pickVoice('male');
 $('vFemale').onclick = () => pickVoice('female');
 $('typicalBtn').onclick = () => changed();
 $('tuneBtn').onclick = () => $('tune').showModal();
+// Prank mode (Yong's idea): one button cycles through over-the-top voices, then back to the makeup.
+const PRANKS = [
+  { id: 'chipmunk', dir: 'younger', v: { pitch: 12, formant: 25, wobble: 0, clarity: 2, texture: 0 } },
+  { id: 'giant', dir: 'older', v: { pitch: -10, formant: -20, wobble: 0, clarity: 0, texture: 0.5 } },
+  { id: 'robot', dir: 'younger', robot: true, v: { pitch: 0, formant: 0, wobble: 0, clarity: 20, texture: 0 } },
+  { id: 'wobbly', dir: 'older', v: { pitch: 0, formant: 0, wobble: 300, clarity: -2, texture: 1 } },
+];
+state.prank = null;
+function showPrank() {
+  const b = $('prankBtn'); b.setAttribute('aria-pressed', !!state.prank);
+  $('prankTxt').textContent = state.prank ? t('pr_' + state.prank) : t('prank');
+  $('looks').classList.toggle('dim', !!state.prank); $('fxLabel').textContent = fxLabel();
+}
+$('prankBtn').onclick = () => {
+  const i = state.prank ? PRANKS.findIndex(p => p.id === state.prank) + 1 : 0;
+  state.prank = i < PRANKS.length ? PRANKS[i].id : null;
+  showPrank(); render();
+};
 
 // ------------------------------------------------------------ WAV encode / audio
 function wavBlob(pcm, sr) {
@@ -281,13 +299,20 @@ async function render() {
   if (!state.take) return;
   if (state.busy) { state.queued = true; return; }
   state.busy = true; $('shareBtn').disabled = true; $('playFx').disabled = true;
-  const v = { pitch: val('pitch'), wobble: val('wobble'), formant: val('formant'), clarity: val('clarity'), texture: val('texture') };
-  const dir = direction();
+  const pr = state.prank ? PRANKS.find(p => p.id === state.prank) : null;
+  const v = pr ? pr.v : { pitch: val('pitch'), wobble: val('wobble'), formant: val('formant'), clarity: val('clarity'), texture: val('texture') };
+  const dir = pr ? pr.dir : direction();
   setStatus(t('applying')); onProgress = (m) => showProgress(m.done); showProgress(0.05);
   try {
     const r = await call('render', { strength: v.texture, direction: dir,
-      cues: { ...state.cues, pitch_cents: Math.round(v.pitch * 100), formant_pct: v.formant, wobble_pct: v.wobble, hnr_db: v.clarity } });
+      cues: { ...state.cues, pitch_cents: Math.round(v.pitch * 100), formant_pct: v.formant, wobble_pct: v.wobble, hnr_db: v.clarity, robot_hz: pr && pr.robot && state.feat ? state.feat.f0med : 0 } });
     state.timings.render = r.ms; state.lastMs = r.ms;
+    { // match the original's loudness (big effects such as Wobbly can come out much quieter)
+      const rms = (a) => { let q = 0; for (const x of a) q += x * x; return Math.sqrt(q / a.length); };
+      let pf = 0; for (const x of r.pcm) pf = Math.max(pf, Math.abs(x));
+      const ro = rms(state.take.pcm), rf = rms(r.pcm), k = rf > 0 && pf > 0 ? Math.min(8, ro / rf, 0.98 / pf) : 1;
+      if (k > 1.3) for (let i = 0; i < r.pcm.length; i++) r.pcm[i] *= k;
+    }
     state.fxBlob = wavBlob(r.pcm, state.take.sr);
     setAudio($('fxAudio'), state.fxBlob);
     $('shareBtn').disabled = false; $('playFx').disabled = false;
@@ -300,7 +325,7 @@ async function render() {
         voice: state.voice, age_band: BAND_EN[state.age], target_band: BAND_EN[state.target], direction: dir,
         used_old_recording: state.old ? 'yes' : 'no', old_f0_median: state.old ? Math.round(state.old.f0med) : '',
         old_wobble_st: state.old ? r1(state.old.wobble * 100) / 100 : '', old_hnr_db: state.old ? r1(state.old.hnr) : '',
-        look_age: state.looks.age, look_confidence: state.looks.conf, look_tone: state.looks.tone, look_gender: state.looks.gender,
+        prank: state.prank || '', look_age: state.looks.age, look_confidence: state.looks.conf, look_tone: state.looks.tone, look_gender: state.looks.gender,
         pitch_st: v.pitch, steadiness_pct: v.wobble, formant_pct: v.formant, clarity_db: v.clarity, texture: v.texture,
         typical_pitch_st: T.pitch, typical_steadiness_pct: T.wobble, typical_formant_pct: T.formant, typical_clarity_db: T.clarity,
         changed_by_user: Object.keys(state.over).join(' '), cues: JSON.stringify(state.cues), lang: LANG,
@@ -449,7 +474,7 @@ function refreshLang() {
   document.title = t('appName');
   $('ver').textContent = t('version', { v: VERSION }); $('verBadge').textContent = VERSION.replace('poc-', 'v');
   $('rsId').textContent = t('rsId', { id: Research.device.slice(0, 8) });
-  fillBands(); fillThemes(); showMetrics(); showOld(); showCount();
+  fillBands(); fillThemes(); showMetrics(); showOld(); showCount(); showPrank();
   if (!rec && !state.busy) idleStatus();
 }
 langSel.value = savedLang() ? LANG : 'auto';
