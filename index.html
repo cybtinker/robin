@@ -144,6 +144,10 @@ h1 { margin: 0; font: 700 22px/1.1 var(--display); }
 .metric label { font-size: 12px; line-height: 1.15; }
 .metric output { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--young); text-align: right; white-space: nowrap; }
 .metric .imp rect { fill: var(--line); } .metric .imp rect.on { fill: var(--young); }
+.makeup { display: flex; flex-direction: column; gap: 6px; }
+.mk-head { display: flex; align-items: center; gap: 8px; }
+.mk-head b { flex: 1; font-size: 14px; }
+.metric .imp:empty { width: 14px; }
 input[type=range] { width: 100%; margin: 0; accent-color: var(--young); height: 28px; }
 
 /* help */
@@ -260,33 +264,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
     <button class="info" type="button" data-info="info_rec" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>
   </section>
 
-  <section class="card age" aria-label="Age">
-    <div class="tiles">
-      <label class="tile"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="var(--panel)"/><path d="M6 17c2-5 7-8 13-6-1 1-2 2-2 4 0 2-2 4-5 4H6z" fill="var(--old)"/><circle cx="16" cy="12" r="1" fill="var(--panel)"/><path d="M19 11l3-.5-2.5 2.5" fill="var(--muted)"/></svg>
-        <span><span class="k" data-i18n="yourAge">Your age</span><span class="v" id="ageV"></span></span>
-        <select id="ageSel" data-i18n-aria="yourAge" aria-label="Your age"></select></label>
-      <svg width="26" height="26" viewBox="0 0 26 26" role="img" data-i18n-aria="becomes" aria-label="becomes"><path d="M4 13h16M14 7l6 6-6 6" fill="none" stroke="var(--young)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <label class="tile to"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="var(--panel)"/><path d="M6 17c2-5 7-8 13-6-1 1-2 2-2 4 0 2-2 4-5 4H6z" fill="var(--young)"/><circle cx="16" cy="12" r="1" fill="var(--panel)"/><path d="M19 11l3-.5-2.5 2.5" fill="#e0a050"/><path d="M20 3l.8 1.6 1.6.8-1.6.8-.8 1.6-.8-1.6-1.6-.8 1.6-.8z" fill="#e0a050"/></svg>
-        <span><span class="k" data-i18n="soundLike">Sound like</span><span class="v" id="targetV"></span></span>
-        <select id="targetSel" data-i18n-aria="soundLike" aria-label="Sound like"></select></label>
+  <section class="card makeup" aria-labelledby="mkT">
+    <div class="mk-head">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6h-4z" fill="var(--young)"/><rect x="8" y="9" width="8" height="12" rx="2" fill="var(--young)" opacity=".55"/><path d="M19 4l.7 1.4 1.4.7-1.4.7-.7 1.4-.7-1.4-1.4-.7 1.4-.7z" fill="#e0a050"/></svg>
+      <b id="mkT" data-i18n="makeupTitle">Voice makeup</b>
+      <button class="typical" type="button" id="tuneBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span data-i18n="tune">Fine-tune</span></button>
     </div>
-
-    <div class="oldrow">
-      <label class="oldbtn" id="oldBtn" for="oldIn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/></svg><span id="oldText" data-i18n="oldRec">Have an old recording of you? Audio or video</span><b aria-hidden="true">+</b></label>
-      <input type="file" id="oldIn" class="vis" accept="audio/*,video/*">
-      <button class="oldx" type="button" id="oldClear" hidden data-i18n-aria="oldClear" aria-label="Stop using the old recording">×</button>
-      <button class="info" type="button" data-info="info_old" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>
-    </div>
-
-    <div class="voicerow">
-      <div class="seg" role="group" data-i18n-aria="voice" aria-label="Voice">
-        <button type="button" id="vMale" aria-pressed="true"><span aria-hidden="true">♂</span><span data-i18n="male">Male</span></button>
-        <button type="button" id="vFemale" aria-pressed="false"><span aria-hidden="true">♀</span><span data-i18n="female">Female</span></button>
-      </div>
-      <button class="typical" type="button" id="typicalBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></svg><span data-i18n="typical">Typical</span></button>
-    </div>
-
-    <div class="metrics" id="metrics"></div>
+    <div class="metrics" id="looks"></div>
   </section>
 
   <section class="card help" aria-labelledby="helpT">
@@ -316,6 +300,43 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<dialog id="tune" aria-labelledby="tuneT">
+  <form method="dialog" class="dlg">
+    <h2 id="tuneT" data-i18n="tune">Fine-tune</h2>
+    <p class="hint" data-i18n="tuneHint"></p>
+  <section class="age" aria-label="Age">
+      <div class="tiles">
+        <label class="tile"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="var(--panel)"/><path d="M6 17c2-5 7-8 13-6-1 1-2 2-2 4 0 2-2 4-5 4H6z" fill="var(--old)"/><circle cx="16" cy="12" r="1" fill="var(--panel)"/><path d="M19 11l3-.5-2.5 2.5" fill="var(--muted)"/></svg>
+          <span><span class="k" data-i18n="yourAge">Your age</span><span class="v" id="ageV"></span></span>
+          <select id="ageSel" data-i18n-aria="yourAge" aria-label="Your age"></select></label>
+        <svg width="26" height="26" viewBox="0 0 26 26" role="img" data-i18n-aria="becomes" aria-label="becomes"><path d="M4 13h16M14 7l6 6-6 6" fill="none" stroke="var(--young)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <label class="tile to"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="var(--panel)"/><path d="M6 17c2-5 7-8 13-6-1 1-2 2-2 4 0 2-2 4-5 4H6z" fill="var(--young)"/><circle cx="16" cy="12" r="1" fill="var(--panel)"/><path d="M19 11l3-.5-2.5 2.5" fill="#e0a050"/><path d="M20 3l.8 1.6 1.6.8-1.6.8-.8 1.6-.8-1.6-1.6-.8 1.6-.8z" fill="#e0a050"/></svg>
+          <span><span class="k" data-i18n="soundLike">Sound like</span><span class="v" id="targetV"></span></span>
+          <select id="targetSel" data-i18n-aria="soundLike" aria-label="Sound like"></select></label>
+      </div>
+
+      <div class="oldrow">
+        <label class="oldbtn" id="oldBtn" for="oldIn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/></svg><span id="oldText" data-i18n="oldRec">Have an old recording of you? Audio or video</span><b aria-hidden="true">+</b></label>
+        <input type="file" id="oldIn" class="vis" accept="audio/*,video/*">
+        <button class="oldx" type="button" id="oldClear" hidden data-i18n-aria="oldClear" aria-label="Stop using the old recording">×</button>
+        <button class="info" type="button" data-info="info_old" data-i18n-aria="infoLabel" aria-label="What is this?">i</button>
+      </div>
+
+      <div class="voicerow">
+        <div class="seg" role="group" data-i18n-aria="voice" aria-label="Voice">
+          <button type="button" id="vMale" aria-pressed="true"><span aria-hidden="true">♂</span><span data-i18n="male">Male</span></button>
+          <button type="button" id="vFemale" aria-pressed="false"><span aria-hidden="true">♀</span><span data-i18n="female">Female</span></button>
+        </div>
+        <button class="typical" type="button" id="typicalBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4"/></svg><span data-i18n="typical">Typical</span></button>
+      </div>
+
+      <div class="metrics" id="metrics"></div>
+    </section>
+
+    <div class="row end"><button class="btn primary" value="close" data-i18n="done">Done</button></div>
+  </form>
+</dialog>
 
 <dialog id="settings" aria-labelledby="setT">
   <form method="dialog" class="dlg">
