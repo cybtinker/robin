@@ -26,7 +26,7 @@
 static const char *dev_mic = NULL;            /* NULL = first USB headset found (hot-plug friendly) */
 static const char *dev_ear = NULL;
 static const char *dev_host = "plughw:CARD=UAC2Gadget,DEV=0";
-static int rate = 48000, period = 128, ctl_port = 9555, verbose = 0, latency_ms = 0;
+static int rate = 48000, period = 128, ctl_port = 9555, verbose = 0, latency_ms = 0, no_listen = 0;
 static volatile sig_atomic_t quit = 0;
 
 static fx_t *fx;
@@ -222,11 +222,11 @@ static void handle(char *cmd, char *reply, size_t rn) {
   } else if (!strncmp(cmd, "stat", 4)) {
     fx_stats s; fx_params p; fx_get_stats(fx, &s); fx_get_params(fx, &p);
     snprintf(reply, rn, "f0=%.0f median=%.0f in=%.1f out=%.1f voice=%s talk=%d listen=%d xruns=%d latency_ms=%.1f "
-      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d",
+      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d desktop=%d",
       s.f0, s.f0_median, s.in_db, s.out_db, s.voice == FX_VOICE_HIGH ? "high" : "low",
       atomic_load(&talk_ok), atomic_load(&listen_ok), atomic_load(&xruns),
       1000.0 * (fx_latency(fx) + 4 * period) / rate,
-      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct));
+      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct), no_listen);
   } else snprintf(reply, rn, "error: unknown command");
   pthread_mutex_unlock(&fx_lock);
 }
@@ -264,10 +264,11 @@ int main(int argc, char **argv) {
     else if (!strcmp(k, "--latency")) { latency_ms = atoi(v); i++; }
     else if (!strcmp(k, "--port")) { ctl_port = atoi(v); i++; }
     else if (!strcmp(k, "--looks")) { sscanf(v, "%f,%f,%f,%f", &looks[0], &looks[1], &looks[2], &looks[3]); i++; }
+    else if (!strcmp(k, "--no-listen")) no_listen = 1;   /* desktop mode: call audio goes to the headset directly */
     else if (!strcmp(k, "-v")) verbose = 1;
     else {
       fprintf(stderr, "usage: fledgling-box [--mic DEV] [--ear DEV] [--host DEV] [--rate 48000] [--period 128]\n"
-        "                     [--latency MS] [--looks age,conf,tone,gender] [--port 9555] [-v]\n"
+        "                     [--latency MS] [--looks age,conf,tone,gender] [--port 9555] [--no-listen] [-v]\n"
         "  list devices with: arecord -L / aplay -L (use the plughw:CARD=... names)\n");
       return 1;
     }
@@ -280,11 +281,11 @@ int main(int argc, char **argv) {
   pthread_t t1, t2, t3;
   pthread_create(&t3, NULL, control_thread, NULL);
   pthread_create(&t1, NULL, talk_thread, NULL);
-  pthread_create(&t2, NULL, listen_thread, NULL);
+  if (!no_listen) pthread_create(&t2, NULL, listen_thread, NULL);
   /* real-time priority for the audio threads when allowed (systemd unit grants it) */
   struct sched_param sp = { .sched_priority = 70 };
-  pthread_setschedparam(t1, SCHED_FIFO, &sp); pthread_setschedparam(t2, SCHED_FIFO, &sp);
-  pthread_join(t1, NULL); pthread_join(t2, NULL); pthread_join(t3, NULL);
+  pthread_setschedparam(t1, SCHED_FIFO, &sp); if (!no_listen) pthread_setschedparam(t2, SCHED_FIFO, &sp);
+  pthread_join(t1, NULL); if (!no_listen) pthread_join(t2, NULL); pthread_join(t3, NULL);
   fx_destroy(fx);
   return 0;
 }

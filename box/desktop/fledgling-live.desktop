@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Fledgling Live
+GenericName=Voice makeup for meetings
+Comment=Younger, confident, clear voice in Zoom, Teams and Meet: pick the mic "Fledgling Voice"
+Exec=fledgling-live
+Icon=fledgling-live
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=voice;microphone;meeting;zoom;teams;
+StartupWMClass=Fledgling Live

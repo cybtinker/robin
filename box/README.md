@@ -27,7 +27,19 @@ Meet, WhatsApp and normal phone calls. Call audio comes back through the box to 
 The effect core (`dsp/fx.c`) is plain C with no dependencies, so it can also be compiled to
 WebAssembly later for a live mode in the app (preview on phones, calls on computers).
 
-## Parts (prototype, all off the shelf)
+## Two ways to use it
+
+1. **Fledgling Live app (Pi 5 / Pi 500+ desktop).** The Pi is the meeting computer: it runs
+   the voice makeup *and* the meeting (Zoom, Teams or Meet in Chromium), with a USB headset,
+   a webcam and a screen. The app adds a microphone called **Fledgling Voice** that the
+   meeting uses. Install with `sh box/desktop/install.sh`; it appears in the menu under
+   Sound & Video. Test guide: [desktop/TEST-PI500.md](desktop/TEST-PI500.md).
+2. **The voice box (Pi 4B + 5-inch screen).** The Pi sits between your headset and a phone or
+   computer and shows up as a USB headset, so it works with any device. Set up below.
+
+Both use the same voice engine and sliders.
+
+## Parts for the voice box (prototype, all off the shelf)
 
 | Part | Approx. price | Notes |
 |---|---|---|
@@ -141,5 +153,7 @@ make
 | `setup/usb-gadget.sh` | Makes the USB-C port a USB sound card (UAC2) |
 | `setup/install.sh` | One-time install: packages, build, boot config, services |
 | `tools/wavfx.c` | Offline test: run the live effect on a WAV file |
+| `setup/fledgling-desktop.sh` | Desktop mode: makes the "Fledgling Voice" virtual mic (PipeWire) and runs the engine into it |
+| `desktop/` | The Fledgling Live app: launcher, menu entry, `.deb` builder, one-command install, test guide |
 
 WORLD is not used here; nothing in the box needs a GPL or LGPL library.

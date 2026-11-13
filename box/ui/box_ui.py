@@ -5,11 +5,12 @@ Talks to the fledgling-box engine over UDP on 127.0.0.1:9555. Works on any scree
 (5-inch 800x480 landscape, or 720x1280 portrait). Settings are kept in
 ~/.config/fledgling-box/settings.json and sent to the engine at start.
 
-Run:  python3 box_ui.py            (fullscreen)
+Run:  python3 box_ui.py            (fullscreen, on the box)
+      python3 box_ui.py --desktop  (a normal window: the Fledgling Live app on a Pi 5 / Pi 500+)
       python3 box_ui.py --window   (800x480 window, for a desktop)
       python3 box_ui.py --shot out.png   (render one frame without a screen, for docs)
 """
-import json, os, socket, sys, time
+import json, os, socket, subprocess, sys, time
 
 if '--shot' in sys.argv:
     os.environ['SDL_VIDEODRIVER'] = 'dummy'
@@ -93,12 +94,14 @@ class UI:
         self.scr, self.eng, self.s = screen, engine, settings
         self.drag = None
         self.dirty_save = 0
+        self.t0 = time.time()
+        self.loop_mod = None   # desktop mode: PipeWire loopback for "Hear myself"
         self.layout()
 
     def layout(self):
         W, H = self.scr.get_size()
         self.W, self.H = W, H
-        u = min(W, H) / 480.0            # scale unit
+        u = min(W / 800.0, H / 480.0)    # scale unit (the layout is drawn for 800x480)
         self.u = u
         self.f_big = pygame.font.Font(None, int(44 * u))
         self.f_mid = pygame.font.Font(None, int(32 * u))
@@ -143,14 +146,16 @@ class UI:
         # connection status
         ok_t, ok_l = st.get('talk', 0) == 1, st.get('listen', 0) == 1
         if not st:
-            msg, col = 'Engine not running', OFF
+            msg, col = 'Starting...' if time.time() - self.t0 < 8 else 'Voice engine not running', OFF
+        elif st.get('desktop') == 1:
+            msg, col = ('In your meeting, pick the mic "Fledgling Voice"', ACCENT) if ok_t else ('Plug in a USB headset', OFF)
         elif ok_t and ok_l:
             msg, col = 'Headset and phone connected', ACCENT
         elif ok_t:
             msg, col = 'Talking (phone audio not playing)', ACCENT
         else:
             msg, col = 'Plug in headset and phone', OFF
-        x = pad + int(250 * u)
+        x = pad + int(230 * u)
         pygame.draw.circle(self.scr, col, (x, int(34 * u)), int(7 * u))
         self.text(msg, self.f_small, MUTED, (x + int(14 * u), int(26 * u)))
         self.button(self.btn_on, 'Makeup ON' if s['on'] else 'Makeup OFF', s['on'], ACCENT if s['on'] else OFF)
@@ -190,6 +195,24 @@ class UI:
         lat = st.get('latency_ms')
         self.text('Level' + ('   ~%d ms' % lat if lat else ''), self.f_small, MUTED, (m.x, self.label_y + int(8 * u)))
 
+    def apply_monitor(self):
+        """Box: the engine mixes your voice into the headset. Desktop: a PipeWire loopback does it."""
+        s = self.s
+        if self.eng.stat.get('desktop') != 1:
+            self.eng.send('monitor %d' % s['monitor'])
+            return
+        if s['monitor'] and self.loop_mod is None:
+            try:
+                out = subprocess.run(['pactl', 'load-module', 'module-loopback', 'source=fledgling_voice',
+                                      'latency_msec=20', 'source_dont_move=true'],
+                                     capture_output=True, text=True, timeout=5).stdout.strip()
+                self.loop_mod = out or None
+            except Exception as e:
+                print('hear myself failed:', e, file=sys.stderr)
+        elif not s['monitor'] and self.loop_mod is not None:
+            subprocess.run(['pactl', 'unload-module', self.loop_mod], timeout=5)
+            self.loop_mod = None
+
     def hit_slider(self, pos):
         for lid, l, r, tint, row, tr in self.rows:
             if row.collidepoint(pos) and tr.x - 30 * self.u <= pos[0] <= tr.right + 30 * self.u:
@@ -213,7 +236,7 @@ class UI:
             self.eng.send('bypass %d' % (0 if s['on'] else 1))
         elif self.btn_mon.collidepoint(pos):
             s['monitor'] = 0 if s['monitor'] else 35
-            self.eng.send('monitor %d' % s['monitor'])
+            self.apply_monitor()
         elif self.btn_reset.collidepoint(pos):
             for k in ('age', 'conf', 'tone', 'gender'):
                 s[k] = DEFAULTS[k]
@@ -235,8 +258,12 @@ def main():
     pygame.display.init()  # not pygame.init(): the mixer must not grab the sound cards
     pygame.font.init()
     shot = sys.argv[sys.argv.index('--shot') + 1] if '--shot' in sys.argv else None
-    if shot or '--window' in sys.argv:
-        scr = pygame.display.set_mode((800, 480))
+    desktop = '--desktop' in sys.argv
+    if shot or '--window' in sys.argv or desktop:
+        scr = pygame.display.set_mode((800, 480), 0 if shot else pygame.RESIZABLE)
+        icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon.png')
+        if os.path.exists(icon):
+            pygame.display.set_icon(pygame.image.load(icon))
     else:
         scr = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         pygame.mouse.set_visible(False)
@@ -254,9 +281,13 @@ def main():
     last_poll = 0
     while True:
         for e in pygame.event.get():
-            if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
+            if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE and not desktop):
                 save(s)
+                if ui.loop_mod:
+                    subprocess.run(['pactl', 'unload-module', ui.loop_mod], timeout=5)
                 return
+            if e.type == pygame.VIDEORESIZE:
+                ui.layout()
             if e.type == pygame.MOUSEBUTTONDOWN:
                 ui.click(e.pos)
             elif e.type == pygame.MOUSEMOTION and ui.drag and e.buttons[0]:
@@ -265,9 +296,12 @@ def main():
                 ui.drag = None
         now = time.time()
         if now - last_poll > 0.2:
-            if not eng.stat:
+            fresh = not eng.stat
+            if fresh:
                 eng.push(s)  # engine (re)started: send our settings again
             eng.poll()
+            if fresh and eng.stat and s['monitor']:
+                ui.apply_monitor()
             last_poll = now
         if ui.dirty_save and now - ui.dirty_save > 1.0:
             save(s)

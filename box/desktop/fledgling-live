@@ -1,0 +1,23 @@
+#!/bin/sh
+# Fledgling Live: start the voice engine (with its "Fledgling Voice" virtual mic) and open the
+# slider window. Closing the window turns the voice makeup off and removes the virtual mic.
+LIB=${FLEDGLING_LIB:-/usr/lib/fledgling-live}
+LOG=${XDG_RUNTIME_DIR:-/tmp}/fledgling-live.log
+
+cleanup() {
+  [ -n "$ENG" ] && kill "$ENG" 2>/dev/null
+  pkill -u "$(id -u)" -x fledgling-box 2>/dev/null
+  # remove our PipeWire modules (virtual mic, engine sink, hear-myself loopback)
+  pactl list short modules 2>/dev/null | grep -E 'fledgling_(engine_out|voice)' | cut -f1 |
+    while read -r m; do pactl unload-module "$m" 2>/dev/null; done
+}
+
+if pgrep -u "$(id -u)" -x fledgling-box >/dev/null; then
+  OWN=0                                   # already running (second launch): just open the window
+else
+  OWN=1
+  "$LIB/fledgling-desktop.sh" >"$LOG" 2>&1 &
+  ENG=$!
+  trap cleanup EXIT INT TERM
+fi
+python3 "$LIB/box_ui.py" --desktop
