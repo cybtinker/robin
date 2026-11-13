@@ -79,11 +79,14 @@ static void looks_to_params(fx_t *fx) {
   /* "typical" 50s -> 20s change from the app's Common Voice table, x3 and capped as in the app */
   float Tp = fem ? 2.4f : 1.1f, Tf = 5.1f, Tw = fem ? -10.f : -16.f, Tc = fem ? 0.2f : 1.3f;
   float pitch = 0, formant = 0, wobble = 0, clarity = 0, presence = 0;
+  /* Men's voices: half the age pitch/size shift (Yong, 2026-11-13: "extreme for men").
+   * Far ends are now Younger +1.5 st / +5 %, Older -1.4 st / -5.6 %. */
+  float ak = fem ? 1.f : 0.5f;
   if (a > 0) {
-    pitch += a * clampf(BOOST * Tp, -3, fem ? 2.5f : 3); formant += a * clampf(BOOST * Tf, -8, fem ? 6 : 10);
+    pitch += ak * a * clampf(BOOST * Tp, -3, fem ? 2.5f : 3); formant += ak * a * clampf(BOOST * Tf, -8, fem ? 6 : 10);
     wobble += BOOST * a * Tw; clarity += BOOST * a * Tc; presence += 1.5f * a;
   }
-  if (a < 0) { float s = -a * Kk; pitch -= 1.5f * s; formant -= 6 * s; wobble += 40 * s; clarity -= 2.5f * s; presence -= 1.0f * s; }
+  if (a < 0) { float s = -a * Kk; pitch -= ak * 1.5f * s; formant -= ak * 6 * s; wobble += 40 * s; clarity -= 2.5f * s; presence -= 1.0f * s; }
   wobble += Kk * (c >= 0 ? -45 * c : -60 * c); clarity += Kk * 2 * c;   /* confident: steadier, less breathy */
   clarity += Kk * (k >= 0 ? 3 * k : 4 * k);                              /* clear / breathy */
   float gk = g > 0 ? (fem ? 0.35f : 1) : (fem ? 1 : 0.35f);

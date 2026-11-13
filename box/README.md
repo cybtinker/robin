@@ -92,7 +92,7 @@ The app's WORLD vocoder needs the whole recording, so the box uses a lighter, st
 
 | Slider | What the box changes |
 |---|---|
-| Older ↔ Younger | pitch (up to +3 st, +2.5 st for higher voices), voice size (formants, up to +10 %), steadiness, clarity, a little brightness |
+| Older ↔ Younger | pitch (up to +1.5 st for low voices, +2.5 st for higher voices), voice size (formants, up to +5 % / +6 %), steadiness, clarity, a little brightness |
 | Timid ↔ Confident | steadiness (less tremor and jitter), clarity, presence (2–5 kHz), levelling compressor; timid is softer and quieter |
 | Breathy ↔ Clear | clear: blends each pitch period with the two before it, which averages away breath noise; breathy: adds soft noise that follows your voice |
 | Masculine ↔ Feminine | pitch (up to ±7.5 st) and voice size together; it is a moderate shift, not a full gender change |
