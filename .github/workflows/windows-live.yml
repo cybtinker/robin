@@ -1,0 +1,42 @@
+name: Windows live app
+
+on:
+  push:
+    paths: ['windows/**', 'box/dsp/**', '.github/workflows/windows-live.yml']
+  pull_request:
+    paths: ['windows/**', 'box/dsp/**', '.github/workflows/windows-live.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: make mingw-w64-ucrt-x86_64-gcc
+      - name: Build FledglingLive.exe
+        working-directory: windows
+        run: make
+      - name: Build installer
+        shell: pwsh
+        working-directory: windows/installer
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc FledglingLive.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Portable zip
+        shell: pwsh
+        working-directory: windows
+        run: Compress-Archive -Path build\FledglingLive.exe, THIRD-PARTY-NOTICES.txt -DestinationPath build\FledglingLive-portable.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FledglingLive-windows
+          path: |
+            windows/build/FledglingLive-Setup-*.exe
+            windows/build/FledglingLive-portable.zip
