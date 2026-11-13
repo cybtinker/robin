@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.6';
+const VERSION = 'poc-10.7';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -157,7 +157,8 @@ METRICS.forEach((m) => {
   $('metrics').appendChild(row);
   const inp = row.querySelector('input');
   inp.addEventListener('input', () => { state.over[m.id] = +inp.value; $(`o_${m.id}`).textContent = fmtVal(m, +inp.value); });
-  inp.addEventListener('change', render);
+  // a prank voice ignores the fine-tune values, so moving one switches the prank off (Yong: 'detailed control doesn't work')
+  inp.addEventListener('change', () => { if (state.prank) { state.prank = null; showPrank(); toast(t('prankOff')); } render(); });
 });
 // Look strength as a word instead of a percent (Yong: '%' was unclear); the side is named by the end word.
 const lvWord = (v) => { const m = Math.abs(v); return m === 0 ? t('lvOff') : t(m < 35 ? 'lvLight' : m < 70 ? 'lvMed' : 'lvStrong'); };
