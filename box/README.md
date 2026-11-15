@@ -29,11 +29,14 @@ WebAssembly later for a live mode in the app (preview on phones, calls on comput
 
 ## Two ways to use it
 
-1. **Fledgling Live app (Pi 5 / Pi 500+ desktop).** The Pi is the meeting computer: it runs
-   the voice makeup *and* the meeting (Zoom, Teams or Meet in Chromium), with a USB headset,
-   a webcam and a screen. The app adds a microphone called **Fledgling Voice** that the
-   meeting uses. Install with `sh box/desktop/install.sh`; it appears in the menu under
-   Sound & Video. Test guide: [desktop/TEST-PI500.md](desktop/TEST-PI500.md).
+1. **Fledgling Live app (Pi 400, Pi 4, Pi 5, Pi 500+ desktop).** The Pi is the computer: it
+   runs the voice makeup *and* the call or recording (Zoom, Teams or Meet in Chromium, OBS or
+   Audacity for YouTube videos), with a headset, a webcam and a screen. The app adds a
+   microphone called **Fledgling Voice** that those apps use. It listens to a USB headset first,
+   then a Bluetooth headset, then a webcam mic, and switches when you plug one in; click
+   "Listening to" in the window to choose another. Install with `sh box/desktop/install.sh`; it
+   appears in the menu under Sound & Video. Test guides: [desktop/TEST-PI400.md](desktop/TEST-PI400.md)
+   (Pi 400, incl. YouTube recording) and [desktop/TEST-PI500.md](desktop/TEST-PI500.md).
 2. **The voice box (Pi 4B + 5-inch screen).** The Pi sits between your headset and a phone or
    computer and shows up as a USB headset, so it works with any device. Set up below.
 

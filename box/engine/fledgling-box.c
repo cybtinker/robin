@@ -26,6 +26,9 @@
 #include <unistd.h>
 
 static const char *dev_mic = NULL;            /* NULL = first USB headset found (hot-plug friendly) */
+/* Desktop mode: the app picks the mic and can switch it while running ("mic" command), so a
+ * headset plugged in mid-call is used without restarting the engine. "none" = no mic yet. */
+static char mic_set[256]; static atomic_int mic_gen;
 static const char *dev_ear = NULL;
 static const char *dev_host = "plughw:CARD=UAC2Gadget,DEV=0";
 static int rate = 48000, period = 128, ctl_port = 9555, verbose = 0, latency_ms = 0, no_listen = 0;
@@ -129,7 +132,13 @@ static void *talk_thread(void *arg) {
   (void)arg;
   float in[4096], fxo[4096], rs[4096 * 2];
   while (!quit) {
-    const char *mic_name = dev_mic ? dev_mic : find_headset();
+    char mic_now[256];
+    pthread_mutex_lock(&fx_lock);
+    int gen = atomic_load(&mic_gen);
+    snprintf(mic_now, sizeof mic_now, "%s", mic_set[0] ? mic_set : dev_mic ? dev_mic : "");
+    pthread_mutex_unlock(&fx_lock);
+    if (!strcmp(mic_now, "none")) { atomic_store(&talk_ok, 0); usleep(100000); continue; }
+    const char *mic_name = mic_now[0] ? mic_now : find_headset();
     snd_pcm_t *mic = mic_name ? open_pcm(mic_name, SND_PCM_STREAM_CAPTURE, 1, 4) : NULL;
     snd_pcm_t *out = mic ? open_pcm(dev_host, SND_PCM_STREAM_PLAYBACK, 1, 8) : NULL;
     if (!mic || !out) {
@@ -142,7 +151,7 @@ static void *talk_thread(void *arg) {
     long target = period * 3;
     static float z[4096]; snd_pcm_writei(out, z, target);   /* prime */
     snd_pcm_start(mic);
-    while (!quit) {
+    while (!quit && atomic_load(&mic_gen) == gen) {
       int r = read_frames(mic, in, period, 1);
       if (r == -1) break;
       if (r == -2) memset(in, 0, sizeof(float) * period);
@@ -166,7 +175,7 @@ static void *talk_thread(void *arg) {
 reopen:
     atomic_store(&talk_ok, 0);
     snd_pcm_close(mic); snd_pcm_close(out);
-    if (!quit) { logm("talk path lost, retrying"); sleep(1); }
+    if (!quit && atomic_load(&mic_gen) == gen) { logm("talk path lost, retrying"); sleep(1); }
   }
   return NULL;
 }
@@ -229,14 +238,16 @@ static void handle(char *cmd, char *reply, size_t rn) {
   else if (sscanf(cmd, "voice %15s", word) == 1) {
     fx_set_voice(fx, !strcmp(word, "low") ? FX_VOICE_LOW : !strcmp(word, "high") ? FX_VOICE_HIGH : FX_VOICE_AUTO);
     snprintf(reply, rn, "ok");
+  } else if (sscanf(cmd, "mic %255s", mic_set) == 1) {     /* switch mic: an ALSA name, or "none" */
+    atomic_fetch_add(&mic_gen, 1); snprintf(reply, rn, "ok");
   } else if (!strncmp(cmd, "stat", 4)) {
     fx_stats s; fx_params p; fx_get_stats(fx, &s); fx_get_params(fx, &p);
     snprintf(reply, rn, "f0=%.0f median=%.0f in=%.1f out=%.1f voice=%s talk=%d listen=%d xruns=%d latency_ms=%.1f "
-      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d desktop=%d licence=%d demo_left=%d",
+      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d desktop=%d licence=%d demo_left=%d mic_gen=%d",
       s.f0, s.f0_median, s.in_db, s.out_db, s.voice == FX_VOICE_HIGH ? "high" : "low",
       atomic_load(&talk_ok), atomic_load(&listen_ok), atomic_load(&xruns),
       1000.0 * (fx_latency(fx) + 4 * period) / rate,
-      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct), no_listen, lic_ok, demo_left());
+      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct), no_listen, lic_ok, demo_left(), atomic_load(&mic_gen));
   } else snprintf(reply, rn, "error: unknown command");
   pthread_mutex_unlock(&fx_lock);
 }
@@ -267,7 +278,7 @@ int main(int argc, char **argv) {
   const char *lic_path = NULL;
   for (int i = 1; i < argc; i++) {
     const char *k = argv[i], *v = i + 1 < argc ? argv[i + 1] : "";
-    if (!strcmp(k, "--mic")) { dev_mic = v; i++; }
+    if (!strcmp(k, "--mic")) { dev_mic = v; snprintf(mic_set, sizeof mic_set, "%s", v); i++; }
     else if (!strcmp(k, "--ear")) { dev_ear = v; i++; }
     else if (!strcmp(k, "--host")) { dev_host = v; i++; }
     else if (!strcmp(k, "--rate")) { rate = atoi(v); i++; }
@@ -285,7 +296,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(k, "--no-listen")) no_listen = 1;   /* desktop mode: call audio goes to the headset directly */
     else if (!strcmp(k, "-v")) verbose = 1;
     else {
-      fprintf(stderr, "usage: fledgling-box [--mic DEV] [--ear DEV] [--host DEV] [--rate 48000] [--period 128]\n"
+      fprintf(stderr, "usage: fledgling-box [--mic DEV|none] [--ear DEV] [--host DEV] [--rate 48000] [--period 128]\n"
         "                     [--latency MS] [--looks age,conf,tone,gender] [--port 9555] [--no-listen] [-v]\n"
         "                     [--licence FILE] [--check-licence [FILE]]\n"
         "  list devices with: arecord -L / aplay -L (use the plughw:CARD=... names)\n");

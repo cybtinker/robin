@@ -1,8 +1,8 @@
 #!/bin/sh
-# Build the Fledgling Live app as a Debian package for this machine (arm64 on a Pi 5 / Pi 500+).
+# Build the Fledgling Live app as a Debian package for this machine (arm64, or armhf on 32-bit Raspberry Pi OS).
 #   sh desktop/build-deb.sh      ->  fledgling-live_<version>_<arch>.deb
 set -e
-VERSION=0.2.0
+VERSION=0.3.0
 BOX=$(cd "$(dirname "$0")/.." && pwd)
 ARCH=$(dpkg --print-architecture)
 OUT="$BOX/fledgling-live_${VERSION}_${ARCH}.deb"

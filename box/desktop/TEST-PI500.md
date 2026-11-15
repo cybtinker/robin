@@ -1,5 +1,7 @@
 # Testing Fledgling Live on a Pi 500+ (or any Pi 5)
 
+On a Pi 400 see [TEST-PI400.md](TEST-PI400.md) instead (it also covers YouTube recording).
+
 About 15 minutes. You need: the Pi 500+ on Raspberry Pi OS **with desktop**, an HDMI screen,
 a USB headset, and (optional) a USB webcam.
 
@@ -18,8 +20,8 @@ It asks for your password, builds the app (about a minute) and installs it.
 
 Plug in the USB headset, then open **menu → Sound & Video → Fledgling Live**.
 The window shows the four sliders. At the top it should say
-*In your meeting, pick the mic "Fledgling Voice"*. If it says *Plug in a USB headset*, unplug and
-replug the headset.
+*Apps: choose the mic "Fledgling Voice"* and, below it, *Listening to:* your headset. If it says
+*Plug in a headset or mic*, unplug and replug the headset.
 
 ## 3. Hear yourself
 
