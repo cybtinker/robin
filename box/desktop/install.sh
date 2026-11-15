@@ -1,5 +1,5 @@
 #!/bin/sh
-# One command on a Pi 5 / Pi 500+ (Raspberry Pi OS with desktop):
+# One command on a Pi 400, Pi 4, Pi 5 or Pi 500+ (Raspberry Pi OS Bookworm or newer, with desktop):
 #   sh desktop/install.sh
 # Builds the Fledgling Live app and installs it. It then appears in the menu under Sound & Video.
 set -e

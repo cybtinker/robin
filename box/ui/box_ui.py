@@ -6,11 +6,11 @@ Talks to the fledgling-box engine over UDP on 127.0.0.1:9555. Works on any scree
 ~/.config/fledgling-box/settings.json and sent to the engine at start.
 
 Run:  python3 box_ui.py            (fullscreen, on the box)
-      python3 box_ui.py --desktop  (a normal window: the Fledgling Live app on a Pi 5 / Pi 500+)
+      python3 box_ui.py --desktop  (a normal window: the Fledgling Live app on a Pi 400 / Pi 5 / Pi 500+)
       python3 box_ui.py --window   (800x480 window, for a desktop)
       python3 box_ui.py --shot out.png   (render one frame without a screen, for docs)
 """
-import json, os, socket, subprocess, sys, time
+import json, os, re, socket, subprocess, sys, time
 
 if '--shot' in sys.argv:
     os.environ['SDL_VIDEODRIVER'] = 'dummy'
@@ -84,14 +84,98 @@ class Engine:
         return st
 
 
+class Mics:
+    """Desktop mode: picks the real mic the engine records from and switches it when headsets come
+    and go. Order: the one the user chose, then a USB headset, a Bluetooth headset, a webcam mic,
+    anything else. Our own "Fledgling Voice" and monitor sources are never offered."""
+    PREF = os.path.expanduser('~/.config/fledgling-box/mic')
+
+    def __init__(self):
+        self.list = []          # [(name, description)] best first
+        self.cur = None         # PipeWire source name the engine is recording from (None = no mic)
+        self.forced = os.environ.get('FLEDGLING_MIC') or None
+        self.last = 0
+        self.pref = None
+
+    @staticmethod
+    def scan():
+        try:  # LC_ALL=C: pactl translates its labels ("Name:", "Description:") otherwise
+            out = subprocess.run(['pactl', 'list', 'sources'], capture_output=True, text=True, timeout=5,
+                                 env={**os.environ, 'LC_ALL': 'C'}).stdout
+        except Exception:
+            return []
+        found = []
+        for block in re.split(r'\n(?=Source #)', out):
+            name = re.search(r'^\s*Name: (\S+)', block, re.M)
+            if not name:
+                continue
+            name = name.group(1)
+            desc = re.search(r'^\s*Description: (.*)$', block, re.M)
+            desc = desc.group(1).strip() if desc else name
+            props = dict(re.findall(r'^\s*([\w.]+) = "(.*)"$', block, re.M))
+            if (not name.startswith(('alsa_input.', 'bluez_input.')) or name.endswith('.monitor')
+                    or props.get('device.class') == 'monitor'):
+                continue
+            webcam = props.get('device.form_factor') == 'webcam' or re.search(r'cam|brio|c9\d\d', name + ' ' + desc, re.I)
+            usb = props.get('device.bus') == 'usb' or '.usb-' in name
+            rank = 2 if name.startswith('bluez_input.') else 3 if webcam else 1 if usb else 4
+            found.append((rank, name, desc))
+        found.sort(key=lambda m: m[0])
+        return [(n, d) for _, n, d in found]
+
+    def best(self):
+        names = [n for n, _ in self.list]
+        for want in (self.forced, self.pref):
+            if want in names:
+                return want
+        return names[0] if names else None
+
+    def desc(self):
+        return next((d for n, d in self.list if n == self.cur), None)
+
+    def update(self, eng, force=False):
+        """Every 2 s: rescan, and tell the engine when the best mic changed (or the engine restarted)."""
+        now = time.time()
+        if not force and now - self.last < 2:
+            return
+        self.last = now
+        try:  # read each time: another window (second launch) may have changed it
+            with open(self.PREF) as f:
+                self.pref = f.read().strip() or None
+        except OSError:
+            self.pref = None
+        self.list = self.scan()
+        b = self.best()
+        restarted = eng.stat and eng.stat.get('mic_gen') == 0
+        if b != self.cur or restarted or force:
+            if eng.send('mic ' + ('pipewire:NODE=' + b if b else 'none')) == 'ok':
+                self.cur = b
+
+    def next(self, eng):
+        """Clicked "Mic": use the next one in the list and remember it."""
+        names = [n for n, _ in self.list]
+        if len(names) < 2:
+            return
+        self.pref = names[(names.index(self.cur) + 1) % len(names)] if self.cur in names else names[0]
+        self.forced = None
+        try:
+            os.makedirs(os.path.dirname(self.PREF), exist_ok=True)
+            with open(self.PREF, 'w') as f:
+                f.write(self.pref + '\n')
+        except OSError as e:
+            print('could not save mic choice:', e, file=sys.stderr)
+        self.update(eng, force=True)
+
+
 def words(v):
     a = abs(v)
     return 'Off' if a == 0 else 'Light' if a < 35 else 'Medium' if a < 70 else 'Strong'
 
 
 class UI:
-    def __init__(self, screen, engine, settings):
-        self.scr, self.eng, self.s = screen, engine, settings
+    def __init__(self, screen, engine, settings, mics=None):
+        self.scr, self.eng, self.s, self.mics = screen, engine, settings, mics
+        self.mic_rect = None
         self.drag = None
         self.dirty_save = 0
         self.t0 = time.time()
@@ -148,7 +232,8 @@ class UI:
         if not st:
             msg, col = 'Starting...' if time.time() - self.t0 < 8 else 'Voice engine not running', OFF
         elif st.get('desktop') == 1:
-            msg, col = ('In your meeting, pick the mic "Fledgling Voice"', ACCENT) if ok_t else ('Plug in a USB headset', OFF)
+            msg, col = (('Apps: choose the mic "Fledgling Voice"', ACCENT) if ok_t and self.mics and self.mics.cur
+                        else ('Plug in a headset or mic', OFF))
         elif ok_t and ok_l:
             msg, col = 'Headset and phone connected', ACCENT
         elif ok_t:
@@ -162,6 +247,15 @@ class UI:
         x = pad + int(230 * u)
         pygame.draw.circle(self.scr, col, (x, int(34 * u)), int(7 * u))
         self.text(msg, self.f_small, MUTED, (x + int(14 * u), int(26 * u)))
+        self.mic_rect = None
+        if self.mics and self.mics.cur and st.get('desktop') == 1:   # which real mic we listen to
+            more = '  (change)' if len(self.mics.list) > 1 else ''
+            room = self.btn_on.x - x - int(24 * u)
+            d = self.mics.desc() or ''
+            while len(d) > 4 and self.f_small.size('Listening to: %s%s' % (d, more))[0] > room:
+                d = (d[:-4] if d.endswith('...') else d[:-1]).rstrip() + '...'   # long names: shorten to fit
+            self.mic_rect = self.text('Listening to: %s%s' % (d, more), self.f_small, MUTED,
+                                      (x + int(14 * u), int(46 * u)))
         self.button(self.btn_on, 'Makeup ON' if s['on'] else 'Makeup OFF', s['on'], ACCENT if s['on'] else OFF)
         # sliders
         for lid, l, r, tint, row, tr in self.rows:
@@ -235,7 +329,9 @@ class UI:
 
     def click(self, pos):
         s = self.s
-        if self.btn_on.collidepoint(pos):
+        if self.mic_rect and self.mic_rect.collidepoint(pos):
+            self.mics.next(self.eng)
+        elif self.btn_on.collidepoint(pos):
             s['on'] = not s['on']
             self.eng.send('bypass %d' % (0 if s['on'] else 1))
         elif self.btn_mon.collidepoint(pos):
@@ -275,7 +371,7 @@ def main():
     eng = Engine()
     s = load()
     eng.push(s)
-    ui = UI(scr, eng, s)
+    ui = UI(scr, eng, s, Mics() if desktop else None)
     if shot:
         eng.stat = {'talk': 1, 'listen': 1, 'voice': 'low', 'out': -18.0, 'latency_ms': 32}
         ui.draw()
@@ -306,6 +402,8 @@ def main():
             eng.poll()
             if fresh and eng.stat and s['monitor']:
                 ui.apply_monitor()
+            if ui.mics and eng.stat:
+                ui.mics.update(eng)
             last_poll = now
         if ui.dirty_save and now - ui.dirty_save > 1.0:
             save(s)
