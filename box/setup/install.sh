@@ -10,7 +10,7 @@ CFG=/boot/firmware/config.txt; [ -f $CFG ] || CFG=/boot/config.txt
 
 echo "== packages"
 apt-get update
-apt-get install -y build-essential libasound2-dev python3-pygame
+apt-get install -y build-essential libasound2-dev libsodium-dev python3-pygame
 
 echo "== build"
 make -C "$BOX"

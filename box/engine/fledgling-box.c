@@ -11,6 +11,7 @@
  */
 #define _GNU_SOURCE
 #include "../dsp/fx.h"
+#include "licence.h"
 #include <alsa/asoundlib.h>
 #include <arpa/inet.h>
 #include <math.h>
@@ -21,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 static const char *dev_mic = NULL;            /* NULL = first USB headset found (hot-plug friendly) */
@@ -34,6 +36,13 @@ static pthread_mutex_t fx_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_int monitor_pct = 0;           /* sidetone: hear your made-up voice, 0..100 */
 static atomic_int talk_ok = 0, listen_ok = 0, xruns = 0;
 static atomic_int bypass_on = 0;
+
+/* licence: without one for this SD card (or Pi), the makeup works for DEMO_S seconds per start,
+ * then the voice passes through unchanged. */
+#define DEMO_S 600
+static int lic_ok = 0; static char lic_who[64]; static double demo_until = 0;
+static double now_s(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + t.tv_nsec * 1e-9; }
+static int demo_left(void) { double l = demo_until - now_s(); return lic_ok ? 0 : l > 0 ? (int)l : 0; }
 
 /* sidetone ring: talk thread writes processed voice, listen thread mixes it in */
 #define ST_N 8192
@@ -138,6 +147,7 @@ static void *talk_thread(void *arg) {
       if (r == -1) break;
       if (r == -2) memset(in, 0, sizeof(float) * period);
       pthread_mutex_lock(&fx_lock); fx_process(fx, in, fxo, period); pthread_mutex_unlock(&fx_lock);
+      if (!lic_ok && now_s() > demo_until) memcpy(fxo, in, sizeof(float) * period);   /* demo over: plain voice */
       /* sidetone copy */
       unsigned w = atomic_load(&st_w);
       for (int i = 0; i < period; i++) st_buf[(w + i) & (ST_N - 1)] = fxo[i];
@@ -222,11 +232,11 @@ static void handle(char *cmd, char *reply, size_t rn) {
   } else if (!strncmp(cmd, "stat", 4)) {
     fx_stats s; fx_params p; fx_get_stats(fx, &s); fx_get_params(fx, &p);
     snprintf(reply, rn, "f0=%.0f median=%.0f in=%.1f out=%.1f voice=%s talk=%d listen=%d xruns=%d latency_ms=%.1f "
-      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d desktop=%d",
+      "pitch=%.2f size=%.1f wobble=%.0f clarity=%.1f presence=%.1f bypass=%d monitor=%d desktop=%d licence=%d demo_left=%d",
       s.f0, s.f0_median, s.in_db, s.out_db, s.voice == FX_VOICE_HIGH ? "high" : "low",
       atomic_load(&talk_ok), atomic_load(&listen_ok), atomic_load(&xruns),
       1000.0 * (fx_latency(fx) + 4 * period) / rate,
-      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct), no_listen);
+      p.pitch_st, p.formant_pct, p.wobble_pct, p.clarity_db, p.presence_db, atomic_load(&bypass_on), atomic_load(&monitor_pct), no_listen, lic_ok, demo_left());
   } else snprintf(reply, rn, "error: unknown command");
   pthread_mutex_unlock(&fx_lock);
 }
@@ -254,6 +264,7 @@ static void on_sig(int s) { (void)s; quit = 1; }
 
 int main(int argc, char **argv) {
   float looks[4] = { 50, 40, 30, 0 };
+  const char *lic_path = NULL;
   for (int i = 1; i < argc; i++) {
     const char *k = argv[i], *v = i + 1 < argc ? argv[i + 1] : "";
     if (!strcmp(k, "--mic")) { dev_mic = v; i++; }
@@ -264,17 +275,28 @@ int main(int argc, char **argv) {
     else if (!strcmp(k, "--latency")) { latency_ms = atoi(v); i++; }
     else if (!strcmp(k, "--port")) { ctl_port = atoi(v); i++; }
     else if (!strcmp(k, "--looks")) { sscanf(v, "%f,%f,%f,%f", &looks[0], &looks[1], &looks[2], &looks[3]); i++; }
+    else if (!strcmp(k, "--licence")) { lic_path = v; i++; }
+    else if (!strcmp(k, "--check-licence")) {             /* print the result and exit (make-card self-test) */
+      char ids[1024]; licence_ids(ids, sizeof ids);
+      int ok = licence_check(i + 1 < argc ? v : NULL, lic_who, sizeof lic_who);
+      printf("%s: %s\nthis machine:\n%s", ok ? "licensed" : "not licensed", lic_who, ids);
+      return ok ? 0 : 2;
+    }
     else if (!strcmp(k, "--no-listen")) no_listen = 1;   /* desktop mode: call audio goes to the headset directly */
     else if (!strcmp(k, "-v")) verbose = 1;
     else {
       fprintf(stderr, "usage: fledgling-box [--mic DEV] [--ear DEV] [--host DEV] [--rate 48000] [--period 128]\n"
         "                     [--latency MS] [--looks age,conf,tone,gender] [--port 9555] [--no-listen] [-v]\n"
+        "                     [--licence FILE] [--check-licence [FILE]]\n"
         "  list devices with: arecord -L / aplay -L (use the plughw:CARD=... names)\n");
       return 1;
     }
   }
   if (period > 1024) period = 1024;
   signal(SIGINT, on_sig); signal(SIGTERM, on_sig);
+  lic_ok = licence_check(lic_path, lic_who, sizeof lic_who);
+  demo_until = now_s() + DEMO_S;
+  logm(lic_ok ? "licensed: %s" : "not licensed (%s): demo, makeup stops after 10 minutes", lic_who);
   fx = fx_create(rate, latency_ms);
   fx_set_looks(fx, looks[0], looks[1], looks[2], looks[3]);
   logm("fledgling-box: %d Hz, period %d, effect latency %.1f ms", rate, period, 1000.0 * fx_latency(fx) / rate);

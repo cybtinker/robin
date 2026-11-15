@@ -155,6 +155,10 @@ class UI:
             msg, col = 'Talking (phone audio not playing)', ACCENT
         else:
             msg, col = 'Plug in headset and phone', OFF
+        if st and st.get('licence') == 0:      # copied card or no licence: 10-minute demo per start
+            left = int(st.get('demo_left', 0))
+            msg, col = (('Demo: %d min left (not a Fledgling card)' % max(1, (left + 59) // 60), OFF) if left > 0
+                        else ('Demo over: needs a Fledgling card', OFF))
         x = pad + int(230 * u)
         pygame.draw.circle(self.scr, col, (x, int(34 * u)), int(7 * u))
         self.text(msg, self.f_small, MUTED, (x + int(14 * u), int(26 * u)))

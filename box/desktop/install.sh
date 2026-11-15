@@ -5,7 +5,7 @@
 set -e
 BOX=$(cd "$(dirname "$0")/.." && pwd)
 sudo apt-get update
-sudo apt-get install -y build-essential libasound2-dev
+sudo apt-get install -y build-essential libasound2-dev libsodium-dev
 sh "$BOX/desktop/build-deb.sh"
 sudo apt-get install -y "$(ls -t "$BOX"/fledgling-live_*.deb | head -n1)"
 echo
