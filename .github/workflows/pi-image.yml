@@ -53,7 +53,7 @@ jobs:
           mkdir -p out
           sudo env FLEDGLING_KEYS="$HOME/.fledgling" DEMO="$DEMO" box/licence/make-card image raspios.img.xz box out/fledgling-master.img
           rm raspios.img.xz
-          sudo chown -R "$(id -u)" out
+          sudo chown -R "$(id -u):$(id -g)" out
 
       - name: Compress
         run: |
