@@ -3,8 +3,9 @@
 # still works, but no licence can ever be valid: the engine stays in 10-minute demo mode.
 CFLAGS ?= -O2 -Wall -Wextra
 ARCH := $(shell uname -m)
+MCPU ?= native
 ifeq ($(ARCH),aarch64)
-  CFLAGS += -mcpu=native
+  CFLAGS += -mcpu=$(MCPU)
 endif
 KEY ?= $(HOME)/.fledgling/licence-public.hex
 # static, so the check can't be swapped out with LD_PRELOAD

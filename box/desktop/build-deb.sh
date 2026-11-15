@@ -13,7 +13,7 @@ trap 'rm -rf "$ST"' EXIT
 # app only ever runs as a 10-minute demo
 KEY=${KEY:-$HOME/.fledgling/licence-public.hex}
 [ -r "$KEY" ] || echo "WARNING: no seller key at $KEY. This build can never be licensed (demo only)." >&2
-make -C "$BOX" KEY="$KEY" fledgling-box
+make -C "$BOX" KEY="$KEY" MCPU="${MCPU:-native}" fledgling-box
 install -D -m 755 "$BOX/fledgling-box"                  "$ST/usr/bin/fledgling-box"
 install -D -m 755 "$BOX/desktop/fledgling-live"         "$ST/usr/bin/fledgling-live"
 install -D -m 755 "$BOX/setup/fledgling-desktop.sh"     "$ST/usr/lib/fledgling-live/fledgling-desktop.sh"

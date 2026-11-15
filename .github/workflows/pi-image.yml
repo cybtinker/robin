@@ -1,0 +1,74 @@
+# Builds the Fledgling Live SD card master image: the latest Raspberry Pi OS (64-bit, desktop)
+# with Fledgling Live compiled and installed inside it. The result is a GitHub release with
+# fledgling-master.img.xz, ready for `make-card flash /dev/mmcblk0 fledgling-master.img.xz`.
+#
+# The seller's PUBLIC key comes from the repository variable FLEDGLING_PUBLIC_KEY
+# (Settings > Secrets and variables > Actions > Variables), printed by `make-card init`.
+# The private key never comes here. Without the variable the image is demo-only.
+# Publishing the image is safe: without a card licence it only runs the 10-minute demo.
+name: Pi card image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-y1uyek]
+    paths: [box/**, .github/workflows/pi-image.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: sudo apt-get update -q && sudo apt-get install -y -q parted xz-utils e2fsprogs
+
+      - name: Seller public key
+        env:
+          PK: ${{ vars.FLEDGLING_PUBLIC_KEY }}
+        run: |
+          mkdir -p "$HOME/.fledgling"
+          k=$(printf '%s' "$PK" | tr -cd '0-9a-fA-F')
+          if [ ${#k} -eq 64 ]; then
+            echo "$k" > "$HOME/.fledgling/licence-public.hex"; echo "DEMO=0" >> "$GITHUB_ENV"; echo "KIND=licensed" >> "$GITHUB_ENV"
+          else
+            echo "::warning::FLEDGLING_PUBLIC_KEY is not set: building a demo-only image"
+            echo "DEMO=1" >> "$GITHUB_ENV"; echo "KIND=demo-only" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download the latest Raspberry Pi OS (64-bit, desktop)
+        run: |
+          url=$(curl -sSLI -o /dev/null -w '%{url_effective}' https://downloads.raspberrypi.com/raspios_arm64_latest)
+          echo "OS image: $url"
+          echo "OS_NAME=$(basename "$url" .img.xz)" >> "$GITHUB_ENV"
+          curl -sSL --retry 3 -o raspios.img.xz "$url"
+          curl -sSL "$url.sha256" | awk '{print $1"  raspios.img.xz"}' | sha256sum -c -
+
+      - name: Build the master image
+        run: |
+          mkdir -p out
+          sudo env FLEDGLING_KEYS="$HOME/.fledgling" DEMO="$DEMO" box/licence/make-card image raspios.img.xz box out/fledgling-master.img
+          rm raspios.img.xz
+          sudo chown -R "$(id -u)" out
+
+      - name: Compress
+        run: |
+          xz -T0 -6 out/fledgling-master.img
+          cd out && sha256sum fledgling-master.img.xz fledgling-live_*.deb > SHA256SUMS && ls -la
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="pi-image-$(date -u +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" out/fledgling-master.img.xz out/fledgling-live_*.deb out/SHA256SUMS \
+            --target "$GITHUB_SHA" --prerelease --title "Fledgling Live card image ($KIND, $(date -u +%Y-%m-%d))" \
+            --notes "Raspberry Pi OS: $OS_NAME
+          Fledgling Live built from ${GITHUB_SHA:0:7}. Key: $KIND.
+
+          Flash and licence a card: sudo box/licence/make-card flash /dev/mmcblk0 fledgling-master.img.xz
+          Without a card licence the app runs as a 10-minute demo."

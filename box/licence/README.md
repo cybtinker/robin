@@ -34,20 +34,28 @@ accepts. Never put it in the repo, on a card, or in an email.
 
 ## Once per release: the master image
 
+The easiest way is GitHub: the **Pi card image** workflow downloads the latest Raspberry Pi OS
+(64-bit, desktop), compiles Fledgling Live inside it with your public key, and publishes
+`fledgling-master.img.xz` as a release on the repo. Put your public key (printed by `init`, also
+in `~/.fledgling/licence-public.hex`) into the repository variable `FLEDGLING_PUBLIC_KEY`
+(Settings > Secrets and variables > Actions > Variables). It's safe to share: it can only check
+licences, not make them. Then run the workflow from the Actions tab and download the image.
+
+Or build it on your Pi (64-bit Raspberry Pi OS):
+
 ```sh
-sh box/desktop/build-deb.sh                                    # builds the app with your key inside
-sudo box/licence/make-card image ~/Downloads/2025-xx-xx-raspios-bookworm-arm64.img.xz box/fledgling-live_0.2.0_arm64.deb
+sudo box/licence/make-card image ~/Downloads/2025-xx-xx-raspios-arm64.img.xz box/
 ```
 
-The result is `~/.fledgling/fledgling-master.img`: stock Raspberry Pi OS with Fledgling Live
-installed. On first boot the buyer still gets the normal Raspberry Pi setup (country, Wi-Fi, their
-own user name and password), and then it's an ordinary Pi to use however they like. The command
-refuses an app that was built without your key.
+The result is stock Raspberry Pi OS with Fledgling Live installed. On first boot the buyer still
+gets the normal Raspberry Pi setup (country, Wi-Fi, their own user name and password), and then it's
+an ordinary Pi to use however they like. Publishing the image is harmless: without a card licence
+it only runs the demo.
 
 ## Per card (about 5 minutes)
 
 ```sh
-sudo NOTE="etsy order 1234" box/licence/make-card flash /dev/mmcblk0
+sudo NOTE="etsy order 1234" box/licence/make-card flash /dev/mmcblk0 fledgling-master.img.xz
 ```
 
 This writes the image, then the licence for that card's serial, and adds a line to

@@ -2,7 +2,7 @@
 # make-card: produce Fledgling Live SD cards that only work as the original card.
 #
 #   make-card init                        once: create your seller key (keep a backup!)
-#   make-card image STOCK.img.xz DEB      once per release: Raspberry Pi OS + Fledgling Live -> fledgling-master.img
+#   make-card image STOCK.img.xz DEB|box/ once per release: Raspberry Pi OS + Fledgling Live -> fledgling-master.img
 #   make-card flash /dev/mmcblk0 [IMG]    per card: write the image + a licence for this card's serial
 #   make-card licence /dev/mmcblk0        per card: only (re)write the licence on an already-flashed card
 #   make-card pi SERIAL                   print a licence line for one Raspberry Pi (Pi + card bundles)
@@ -90,18 +90,25 @@ pi)
   echo "(add this line to fledgling.lic on that Pi's card)" >&2
   ;;
 image)
-  need_root image; need_key
-  [ $# -ge 2 ] || die "usage: sudo $0 image RASPIOS.img.xz fledgling-live_X_arm64.deb [OUT.img]"
-  stock=$1 deb=$(readlink -f "$2") out=${3:-$MASTER_DEFAULT}
-  [ "$(dpkg --print-architecture)" = arm64 ] || die "build the image on a 64-bit Raspberry Pi OS"
-  # the app must carry this seller's key, or no card will ever unlock
-  tmp=$(mktemp -d); dpkg-deb -x "$deb" "$tmp"
-  od -An -tx1 -v "$tmp/usr/bin/fledgling-box" | tr -d ' \n' | grep -q "$(tr -d ' \n' < "$PUB")" ||
-    { rm -rf "$tmp"; die "$deb was built without your key. Rebuild it (sh box/desktop/build-deb.sh) after init."; }
-  rm -rf "$tmp"
+  # sudo make-card image STOCK.img.xz SOURCE [OUT.img]
+  #   SOURCE = a fledgling-live .deb, or the box/ folder: then the app is compiled inside the image
+  #   itself, so it matches that Raspberry Pi OS exactly (this is what the GitHub workflow does).
+  need_root image
+  [ $# -ge 2 ] || die "usage: sudo $0 image RASPIOS.img.xz (fledgling-live_X_arm64.deb | box/) [OUT.img]"
+  stock=$1 src=$(readlink -f "$2") out=${3:-$MASTER_DEFAULT}
+  [ "$(uname -m)" = aarch64 ] || die "build the image on 64-bit ARM (a Raspberry Pi, or an arm64 GitHub runner)"
+  if [ -r "$PUB" ]; then key=$(tr -cd '0-9a-f' < "$PUB")
+  elif [ "${DEMO:-0}" = 1 ]; then key=; echo "DEMO=1: building a demo-only image (no card can unlock it)" >&2
+  else die "no seller public key at $PUB (run: $0 init, or DEMO=1 for a demo-only image)"; fi
+  if [ -f "$src" ] && [ -n "$key" ]; then   # a prebuilt app must carry this seller's key
+    tmp=$(mktemp -d); dpkg-deb -x "$src" "$tmp"
+    od -An -tx1 -v "$tmp/usr/bin/fledgling-box" | tr -d ' \n' | grep -q "$key" ||
+      { rm -rf "$tmp"; die "$src was built without your key. Rebuild it (sh box/desktop/build-deb.sh) after init."; }
+    rm -rf "$tmp"
+  fi
   echo "unpacking $stock ..."
   case "$stock" in *.xz) xz -dc "$stock" > "$out";; *) cp "$stock" "$out";; esac
-  truncate -s +1G "$out"                         # room for the app and its packages
+  truncate -s +1536M "$out"                      # room for the app and its packages
   parted -s "$out" resizepart 2 100%
   loop=$(losetup -fP --show "$out"); mnt=$(mktemp -d)
   cleanup() {
@@ -112,10 +119,24 @@ image)
   e2fsck -pf "${loop}p2" >/dev/null || true; resize2fs "${loop}p2" >/dev/null
   mount "${loop}p2" "$mnt"; mount "${loop}p1" "$mnt/boot/firmware"
   for m in proc sys dev dev/pts; do mount --bind "/$m" "$mnt/$m"; done
-  cp "$deb" "$mnt/tmp/fledgling-live.deb"
-  cp --remove-destination /etc/resolv.conf "$mnt/etc/resolv.conf"
-  chroot "$mnt" /bin/sh -c 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q /tmp/fledgling-live.deb && apt-get clean'
-  rm -f "$mnt/tmp/fledgling-live.deb"
+  cp -a "$mnt/etc/resolv.conf" "$mnt/tmp/resolv.conf.orig" 2>/dev/null || true
+  cp --remove-destination -L /etc/resolv.conf "$mnt/etc/resolv.conf"
+  if [ -d "$src" ]; then
+    cp -r "$src" "$mnt/tmp/box"; rm -f "$mnt"/tmp/box/fledgling-live_*.deb
+    printf '%s\n' "$key" > "$mnt/tmp/box/seller.hex"
+    # cortex-a72 = Pi 4 / Pi 400 / CM4; the Pi 5 (cortex-a76) runs it too
+    chroot "$mnt" /bin/sh -ec 'export DEBIAN_FRONTEND=noninteractive; apt-get update -q
+      apt-get install -y -q build-essential libasound2-dev libsodium-dev
+      cd /tmp/box && make clean >/dev/null && MCPU=cortex-a72 KEY=/tmp/box/seller.hex sh desktop/build-deb.sh
+      apt-get install -y -q /tmp/box/fledgling-live_*.deb && apt-get clean'
+    cp "$mnt"/tmp/box/fledgling-live_*.deb "$(dirname "$out")/"
+    rm -rf "$mnt/tmp/box"
+  else
+    cp "$src" "$mnt/tmp/fledgling-live.deb"
+    chroot "$mnt" /bin/sh -ec 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q /tmp/fledgling-live.deb && apt-get clean'
+    rm -f "$mnt/tmp/fledgling-live.deb"
+  fi
+  if [ -e "$mnt/tmp/resolv.conf.orig" ] || [ -L "$mnt/tmp/resolv.conf.orig" ]; then mv -f "$mnt/tmp/resolv.conf.orig" "$mnt/etc/resolv.conf"; fi
   cleanup; trap - EXIT
   chown "$REAL_USER" "$out" 2>/dev/null || true
   echo "master image ready: $out ($(du -h "$out" | cut -f1))"
