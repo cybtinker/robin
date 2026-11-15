@@ -11,7 +11,7 @@
  *     (or grow, for "older")
  *  6. clarity: each grain is blended with the previous two periods, which keeps the repeating
  *     voice and averages away breath noise; "breathy" adds shaped noise instead
- *  7. presence EQ, levelling compressor, soft limiter
+ *  7. presence EQ, levelling compressor, soft limiter (the boosts follow a voice gate, so pauses stay quiet)
  * Unvoiced sounds (s, f, pauses) pass through grain by grain with the same latency.
  */
 #include "fx.h"
@@ -48,6 +48,7 @@ struct fx {
   float hp_x, hp_y, br_env;                      /* breath noise */
   float comp_env, comp_gain, lim_env, bypass_g; int bypass;
   float in_pow, out_pow; unsigned rng;
+  unsigned char *vr; float vgate;                /* voicing per input sample; smoothed voice gate at the output */
 };
 
 static float clampf(float x, float a, float b) { return x < a ? a : x > b ? b : x; }
@@ -108,7 +109,7 @@ fx_t *fx_create(int sr, int latency_ms) {
   fx->sr = sr;
   fx->L = (int)(sr * (latency_ms > 0 ? latency_ms : 21) / 1000.0);
   fx->Tu = sr / 250;                                  /* 4 ms grains when unvoiced */
-  fx->in = calloc(RB, sizeof(float)); fx->out = calloc(RB, sizeof(float)); fx->ws = calloc(RB, sizeof(float));
+  fx->in = calloc(RB, sizeof(float)); fx->out = calloc(RB, sizeof(float)); fx->ws = calloc(RB, sizeof(float)); fx->vr = calloc(RB, 1);
   fx->PW = 256; while (fx->PW * 1000 < sr * 40) fx->PW <<= 1;  /* >= 40 ms: 3 periods of a 75 Hz voice */
   fx->PN = 2 * fx->PW; fx->hop = sr / 200;
   int PN = fx->PN, PW = fx->PW;
@@ -130,7 +131,7 @@ fx_t *fx_create(int sr, int latency_ms) {
 
 void fx_destroy(fx_t *fx) {
   if (!fx) return;
-  free(fx->in); free(fx->out); free(fx->ws); free(fx->tw); free(fx->buf); free(fx->rev); free(fx->pwin); free(fx->pwin_ac);
+  free(fx->in); free(fx->out); free(fx->ws); free(fx->vr); free(fx->tw); free(fx->buf); free(fx->rev); free(fx->pwin); free(fx->pwin_ac);
   free(fx);
 }
 
@@ -292,14 +293,17 @@ void fx_process(fx_t *fx, const float *in, float *out, int n) {
     fx->a1 = fx->b1; fx->a2 = (float)((1 - al / A) / a0); fx->pres_set = P->presence_db;
   }
   float g_out = db2lin(P->gain_db), breath = P->clarity_db < 0 ? -P->clarity_db / 10.f : 0;
-  float ratio = 1.f + 3.f * P->comp, thr = -30.f, makeup = 6.f * P->comp;
+  /* make-up gain keeps a -18 dBFS voice at the same level (louder parts come down, quieter ones up), so
+   * levelling no longer makes the voice quieter than the room noise around it */
+  float ratio = 1.f + 3.f * P->comp, thr = -30.f, makeup = 12.f * (1.f - 1.f / ratio);
   float a_env = 1 - expf(-1.f / (0.010f * fx->sr));
   float a_att = 1 - expf(-1.f / (0.003f * fx->sr)), a_rel = 1 - expf(-1.f / (0.120f * fx->sr));
   float a_lim = 1 - expf(-1.f / (0.060f * fx->sr)), a_byp = 1 - expf(-1.f / (0.015f * fx->sr));
   float a_meter = 1 - expf(-1.f / (0.100f * fx->sr)), a_hp = expf(-TWO_PI * 1500.f / fx->sr);
+  float a_von = 1 - expf(-1.f / (0.015f * fx->sr)), a_voff = 1 - expf(-1.f / (0.050f * fx->sr));
   for (int i = 0; i < n; i++) {
     float x = in[i];
-    fx->in[fx->now & RM] = x; fx->now++;
+    fx->in[fx->now & RM] = x; fx->vr[fx->now & RM] = fx->voicing > 0.5f; fx->now++;
     if (++fx->hop_cnt >= fx->hop && fx->now >= fx->PW) { fx->hop_cnt = 0; track_pitch(fx); }
     make_marks(fx);
     place_grains(fx);
@@ -311,6 +315,10 @@ void fx_process(fx_t *fx, const float *in, float *out, int n) {
       fx->out[o & RM] = 0; fx->ws[o & RM] = 0;
       d = fx->in[o & RM];
     }
+    /* voice gate: brightening and make-up gain only while there is voice. Applied everywhere they lifted
+     * the mic's hiss in pauses (Yong: 'grainy, static'). Fast on, a little slower off so word endings keep it. */
+    float vg = o >= 0 && fx->vr[o & RM] ? 1.f : 0.f;
+    fx->vgate += (vg > fx->vgate ? a_von : a_voff) * (vg - fx->vgate);
     /* breathy: high-passed noise that follows the voice level */
     if (breath > 0) {
       float nz = frand(fx), hp = a_hp * (fx->hp_y + nz - fx->hp_x); fx->hp_x = nz; fx->hp_y = hp;
@@ -318,7 +326,8 @@ void fx_process(fx_t *fx, const float *in, float *out, int n) {
       y = y * (1 - 0.25f * breath) + hp * fx->br_env * 0.9f * breath;
     }
     /* presence */
-    float e = fx->b0 * y + fx->z1; fx->z1 = fx->b1 * y - fx->a1 * e + fx->z2; fx->z2 = fx->b2 * y - fx->a2 * e; y = e;
+    float e = fx->b0 * y + fx->z1; fx->z1 = fx->b1 * y - fx->a1 * e + fx->z2; fx->z2 = fx->b2 * y - fx->a2 * e;
+    y = P->presence_db > 0 ? y + fx->vgate * (e - y) : e;           /* cutting (softer) may stay everywhere */
     /* levelling compressor (confident) */
     fx->comp_env += a_env * (y * y - fx->comp_env);
     float target = 1;
@@ -326,7 +335,7 @@ void fx_process(fx_t *fx, const float *in, float *out, int n) {
       float lvl = 10 * log10f(fx->comp_env + 1e-10f);
       float gdb = lvl > thr ? (thr + (lvl - thr) / ratio - lvl) : 0;
       if (lvl < -60) gdb -= makeup;                     /* don't lift background noise in pauses */
-      target = db2lin(gdb + makeup);
+      target = db2lin(gdb + makeup * fx->vgate);
     }
     fx->comp_gain += (target < fx->comp_gain ? a_att : a_rel) * (target - fx->comp_gain);
     y *= fx->comp_gain * g_out;
