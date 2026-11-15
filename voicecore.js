@@ -17,6 +17,7 @@
     HP: null, // filled below
   };
 
+  const TILT_MAX_DB = 4;   // most brightening the younger effect adds (dB at 8 kHz)
   const YOUNGER = { vib_extent: 0.45, vib_rate: 1.10, vib_regular: 1.0, jitter: 0.1, shimmer: 0.15,
     breath_db: -14.0, tilt_db: 8.0, formant: 1.08, clarity: 0.35 };
   const OLDER = { vib_extent: 2.2, vib_rate: 0.82, vib_regular: 0.0, vib_wobble: 0.7, jitter: 4.0, shimmer: 3.5,
@@ -338,13 +339,25 @@
     }
 
     // --- spectral tilt
-    const tDb = P.tilt_db * s * C.tilt;
+    // Brightening is capped at +4 dB and applied only where there is voice (faded over ~2 frames at the
+    // edges): applied everywhere it lifted the phone mic's hiss in the pauses by 8-15 dB (Yong: 'grainy, static').
+    const tDb = Math.min(TILT_MAX_DB, P.tilt_db * s * C.tilt);
     if (tDb) {
-      const g = freqs.map(f => {
+      const shape = freqs.map(f => {
         const op = Math.min(1, Math.max(0, Math.log2(Math.max(f, 1) / 500) / 4));
-        return Math.pow(10, tDb * (0.5 - 0.5 * Math.cos(Math.PI * op)) / 10);
+        return 0.5 - 0.5 * Math.cos(Math.PI * op);
       });
-      for (let i = 0; i < nf; i++) { const o = i * nb; for (let q = 0; q < nb; q++) sp[o + q] *= g[q]; }
+      const vw = new Float64Array(nf);
+      for (let i = 0; i < nf; i++) vw[i] = f0[i] > 0 ? 1 : 0;
+      if (tDb > 0) for (let p = 0; p < 2; p++) for (let i = 1; i < nf - 1; i++) vw[i] = Math.max(vw[i], 0.45 * (vw[i - 1] + vw[i + 1]));
+      else vw.fill(1);                                                   // darkening (older) may stay everywhere
+      const g = new Float64Array(nb);
+      for (let i = 0; i < nf; i++) {
+        if (!vw[i]) continue;
+        const o = i * nb;
+        for (let q = 0; q < nb; q++) g[q] = Math.pow(10, tDb * vw[i] * shape[q] / 10);
+        for (let q = 0; q < nb; q++) sp[o + q] *= g[q];
+      }
     }
     // --- prank extras (all off unless set)
     const dt = FRAME_MS / 1000;
