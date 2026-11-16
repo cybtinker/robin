@@ -57,7 +57,8 @@ jobs:
 
       - name: Compress
         run: |
-          xz -T0 -6 out/fledgling-master.img
+          # -c: write through a pipe, so xz never tries to copy the (root) owner or group
+          xz -T0 -6 -c out/fledgling-master.img > out/fledgling-master.img.xz && rm out/fledgling-master.img
           cd out && sha256sum fledgling-master.img.xz fledgling-live_*.deb > SHA256SUMS && ls -la
 
       - name: Publish release
