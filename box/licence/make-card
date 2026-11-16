@@ -54,6 +54,31 @@ check_target() {
 
 part1() { echo "${1}p1"; }
 
+# Shrink the root partition to its contents plus a little room, so the image fits an 8 GB card.
+# Raspberry Pi OS grows it back to fill the whole card on first boot ("resize" in cmdline.txt).
+shrink_image() {
+  local img=$1 loop bs used want start sectors end room=${ROOM_MB:-512}
+  loop=$(losetup -fP --show "$img")
+  e2fsck -pf "${loop}p2" >/dev/null || [ $? -le 1 ] || { losetup -d "$loop"; die "root filesystem check failed"; }
+  bs=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block size/{print $2+0}')
+  used=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block count/{c=$2} /^Free blocks/{f=$2} END{print c-f}')
+  want=$(( used + room * 1048576 / bs ))
+  # resize2fs -P overestimates a lot on Pi OS (6.3 GB for 4.6 GB of files), so ask for the real
+  # size with -f; resize2fs still refuses if the files can't fit, and e2fsck checks the result.
+  resize2fs -f "${loop}p2" "$want" >/dev/null 2>&1 || resize2fs -M "${loop}p2" >/dev/null 2>&1 ||
+    { losetup -d "$loop"; die "could not shrink the root filesystem"; }
+  e2fsck -fn "${loop}p2" >/dev/null 2>&1 || { losetup -d "$loop"; die "root filesystem damaged while shrinking"; }
+  want=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block count/{print $2+0}')
+  sectors=$(( ( want * bs / 512 + 2047 ) / 2048 * 2048 ))   # whole MiB
+  losetup -d "$loop"
+  start=$(partx -g -o START -n 2 "$img" | tr -d ' ')
+  [ -n "$start" ] || die "can't read the partition table of $img"
+  echo "$start,$sectors" | sfdisk -q -N 2 --no-reread --no-tell-kernel "$img"
+  end=$(( (start + sectors) * 512 ))
+  truncate -s "$end" "$img"
+  echo "root partition shrunk: image is now $(( end / 1048576 )) MiB (Pi OS expands it to the whole card on first boot)"
+}
+
 write_licence() {
   local dev=$1 cid line mnt
   cid=$(card_cid "$dev")
@@ -108,7 +133,7 @@ image)
   fi
   echo "unpacking $stock ..."
   case "$stock" in *.xz) xz -dc "$stock" > "$out";; *) cp "$stock" "$out";; esac
-  truncate -s +1536M "$out"                      # room for the app and its packages
+  truncate -s +1024M "$out"                      # working room for apt; shrunk again at the end
   parted -s "$out" resizepart 2 100%
   loop=$(losetup -fP --show "$out"); mnt=$(mktemp -d)
   cleanup() {
@@ -137,7 +162,12 @@ image)
     rm -f "$mnt/tmp/fledgling-live.deb"
   fi
   if [ -e "$mnt/tmp/resolv.conf.orig" ] || [ -L "$mnt/tmp/resolv.conf.orig" ]; then mv -f "$mnt/tmp/resolv.conf.orig" "$mnt/etc/resolv.conf"; fi
+  # Leave nothing from the build behind: package lists (~150 MB, apt fetches them again), caches, logs.
+  rm -rf "$mnt"/var/lib/apt/lists/* "$mnt"/var/cache/apt/*.bin "$mnt"/var/cache/apt/archives/*.deb "$mnt"/tmp/* "$mnt"/var/tmp/*
+  find "$mnt/var/log" -type f -exec truncate -s 0 {} +
+  fstrim "$mnt" 2>/dev/null || true             # free blocks become holes: smaller download, faster flashing
   cleanup; trap - EXIT
+  shrink_image "$out"
   chown "$REAL_USER" "$out" 2>/dev/null || true
   echo "master image ready: $out ($(du -h "$out" | cut -f1))"
   ;;
