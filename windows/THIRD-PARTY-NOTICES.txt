@@ -19,5 +19,8 @@ Licensed under your choice of Public Domain (Unlicense) or MIT No Attribution:
 The MinGW-w64 runtime that is statically linked into FledglingLive.exe is under permissive licences
 (ZPL / public domain; libgcc with the GCC Runtime Library Exception).
 
-Virtual microphone (not included): VB-CABLE by VB-Audio Software (www.vb-cable.com) is
-donationware and is installed separately by the user.
+Virtual microphone: VB-CABLE by VB-Audio Software (www.vb-cable.com) is donationware. It is not
+part of Fledgling Live. The installer and USB kit include VB-Audio's VB-CABLE package unchanged,
+as VB-Audio's licensing page allows (https://vb-audio.com/Services/licensing.htm). If you find
+VB-CABLE useful, please support its author or buy a licence at www.vb-cable.com. Remove it with
+VBCABLE_Setup_x64.exe (Run as administrator, "Remove Driver"), kept in the VB-CABLE folder.

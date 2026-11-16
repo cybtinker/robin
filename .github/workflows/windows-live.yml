@@ -22,6 +22,29 @@ jobs:
       - name: Build FledglingLive.exe
         working-directory: windows
         run: make
+      - name: Get VB-CABLE driver pack (unchanged, for bundling)
+        shell: pwsh
+        working-directory: windows/installer
+        # VB-Audio allows shipping the VB-CABLE package as is with an app (donationware, credit
+        # www.vb-cable.com): https://vb-audio.com/Services/licensing.htm. If no pack can be
+        # downloaded, the installer is built without it and the build still passes.
+        run: |
+          $packs = 'VBCABLE_Driver_Pack46.zip','VBCABLE_Driver_Pack45.zip','VBCABLE_Driver_Pack43.zip'
+          foreach ($p in $packs) {
+            try {
+              Invoke-WebRequest "https://download.vb-audio.com/Download_CABLE/$p" -OutFile vbcable.zip -UseBasicParsing
+              Expand-Archive vbcable.zip -DestinationPath vbcable -Force
+              $sig = Get-AuthenticodeSignature vbcable\VBCABLE_Setup_x64.exe
+              if ($sig.Status -ne 'Valid') { throw "VBCABLE_Setup_x64.exe signature: $($sig.Status)" }
+              Write-Host "Bundling $p, signed by $($sig.SignerCertificate.Subject)"
+              Remove-Item vbcable.zip
+              break
+            } catch {
+              Write-Host "Could not use ${p}: $_"
+              Remove-Item vbcable, vbcable.zip -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
+          if (-not (Test-Path vbcable\VBCABLE_Setup_x64.exe)) { Write-Host "::warning::Building the installer without VB-CABLE" }
       - name: Build installer
         shell: pwsh
         working-directory: windows/installer
@@ -34,9 +57,24 @@ jobs:
         shell: pwsh
         working-directory: windows
         run: Compress-Archive -Path build\FledglingLive.exe, THIRD-PARTY-NOTICES.txt -DestinationPath build\FledglingLive-portable.zip
+      - name: USB stick kit
+        shell: pwsh
+        working-directory: windows
+        run: |
+          $kit = 'build\usb\Fledgling Live'
+          New-Item -ItemType Directory -Force "$kit\Portable" | Out-Null
+          Copy-Item build\FledglingLive-Setup-*.exe "$kit\Setup Fledgling Live.exe"
+          Copy-Item usb\README-FIRST.txt $kit
+          Copy-Item build\FledglingLive.exe, THIRD-PARTY-NOTICES.txt "$kit\Portable"
+          if (Test-Path installer\vbcable\VBCABLE_Setup_x64.exe) {
+            Copy-Item installer\vbcable "$kit\Portable\VB-CABLE" -Recurse
+            Copy-Item "usb\Install VB-CABLE.cmd" "$kit\Portable"
+          }
+          Compress-Archive -Path build\usb\* -DestinationPath build\FledglingLive-USB.zip
       - uses: actions/upload-artifact@v4
         with:
           name: FledglingLive-windows
           path: |
             windows/build/FledglingLive-Setup-*.exe
             windows/build/FledglingLive-portable.zip
+            windows/build/FledglingLive-USB.zip
