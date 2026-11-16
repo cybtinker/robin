@@ -18,24 +18,32 @@ This is how Voicemod, Krisp and NVIDIA Broadcast work too, except they ship thei
 
 ## Try it on your PC (about 5 minutes)
 
-1. **Install VB-CABLE (free).** Download "VBCABLE_Driver_Pack" from <https://vb-audio.com/Cable/>,
-   unzip it, right-click `VBCABLE_Setup_x64.exe` → **Run as administrator** → **Install Driver**.
-   Restart the PC.
-2. **Get Fledgling Live.** Either the portable `FledglingLive.exe` (just unzip and run), or the
-   installer `FledglingLive-Setup-x.y.z.exe` from the GitHub Actions run (Actions tab →
-   "Windows live app" → latest run → Artifacts). The installer needs no admin rights.
+**Administrator rights are required once per PC**, for the VB-CABLE virtual microphone (a
+driver), followed by a restart. The Fledgling Live app itself needs no admin rights.
+
+1. **Get Fledgling Live** from the GitHub Actions run (Actions tab → "Windows live app" → latest
+   run → Artifacts). Three forms:
+   - `FledglingLive-Setup-x.y.z.exe`: one installer. If the PC has no VB-CABLE yet, it offers to
+     install it too (ticked by default): Windows shows an admin (UAC) prompt for that step only,
+     and the installer asks to restart at the end.
+   - `FledglingLive-USB.zip`: unzip onto a USB stick. It holds the same installer plus a
+     `Portable` folder (the exe, VB-CABLE and `Install VB-CABLE.cmd`) for PCs where you'd rather
+     not install the app. See `README-FIRST.txt` on the stick.
+   - `FledglingLive-portable.zip`: the exe only. Then install VB-CABLE yourself: download
+     "VBCABLE_Driver_Pack" from <https://vb-audio.com/Cable/>, unzip it, right-click
+     `VBCABLE_Setup_x64.exe` → **Run as administrator** → **Install Driver**, and restart.
    Windows SmartScreen will warn that the app is unrecognised, because it isn't code-signed yet:
    click **More info → Run anyway**.
-3. **Open Fledgling Live.** Pick your real microphone under *Microphone*. *Send to* picks
+2. **Open Fledgling Live.** Pick your real microphone under *Microphone*. *Send to* picks
    **CABLE Input** by itself.
-4. **In your call app**, choose **CABLE Output (VB-Audio Virtual Cable)** as the microphone.
+3. **In your call app**, choose **CABLE Output (VB-Audio Virtual Cable)** as the microphone.
    Leave the speaker as your normal headphones.
    - Zoom: Settings → Audio → Microphone. Turn off "Automatically adjust microphone volume".
    - Teams: Settings → Devices → Microphone. Set noise suppression to Low.
    - Discord: User Settings → Voice & Video → Input Device. Turn off Krisp noise suppression.
    - Quick check without a call: Windows **Voice Recorder / Sound Recorder** with CABLE Output as
      the mic, or Windows Sound settings → Input → CABLE Output → "Test your microphone".
-5. Tick **Hear myself** (with headphones on) to hear the result live. The two bars show the mic
+4. Tick **Hear myself** (with headphones on) to hear the result live. The two bars show the mic
    level (grey) and the output level (green).
 
 Tips: "My voice → Auto" decides lower or higher voice from your pitch after a few seconds of
