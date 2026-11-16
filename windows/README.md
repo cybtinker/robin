@@ -77,7 +77,7 @@ the exe is ~350 KB.
 - **From Linux:** `sudo apt install gcc-mingw-w64-x86-64 && make -C windows`
 - **On Windows:** install [MSYS2](https://www.msys2.org/), then in the UCRT64 shell
   `pacman -S make mingw-w64-ucrt-x86_64-gcc` and `make -C windows`.
-- Installer: [Inno Setup 6](https://jrsoftware.org/isinfo.php) (free, commercial use allowed),
+- Installer: [Inno Setup 6](https://jrsoftware.org/isinfo.php) (free for non-commercial use; buy a one-off commercial licence at <https://jrsoftware.org/isorder.php> before selling),
   `iscc windows/installer/FledglingLive.iss`. Per-user install, no admin prompt, supports
   `/VERYSILENT` (a Microsoft Store requirement for EXE installers).
 

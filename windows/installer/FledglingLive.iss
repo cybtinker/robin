@@ -1,4 +1,4 @@
-; Fledgling Live installer (Inno Setup 6, free for commercial use).
+; Fledgling Live installer (Inno Setup 6: free for non-commercial use; selling the app needs a commercial licence, https://jrsoftware.org/isorder.php).
 ; Per-user install, no admin prompt, silent install with /VERYSILENT (needed for a Microsoft Store EXE listing).
 ;
 ; VB-CABLE bundling (optional): if the unmodified VB-Audio driver pack is unzipped into
