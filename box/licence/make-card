@@ -1,0 +1,196 @@
+#!/bin/bash
+# make-card: produce Fledgling Live SD cards that only work as the original card.
+#
+#   make-card init                        once: create your seller key (keep a backup!)
+#   make-card image STOCK.img.xz DEB|box/ once per release: Raspberry Pi OS + Fledgling Live -> fledgling-master.img
+#   make-card flash /dev/mmcblk0 [IMG]    per card: write the image + a licence for this card's serial
+#   make-card licence /dev/mmcblk0        per card: only (re)write the licence on an already-flashed card
+#   make-card pi SERIAL                   print a licence line for one Raspberry Pi (Pi + card bundles)
+#
+# Run it on a Raspberry Pi (arm64 Raspberry Pi OS) whose built-in SD slot is free, e.g. a Pi 500+
+# booting from its SSD. USB card readers hide the card's serial (CID), so they can't be used for
+# `flash` / `licence`. Everything except init/pi needs sudo.
+set -euo pipefail
+
+REAL_USER=${SUDO_USER:-$(id -un)}
+REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+KEYS=${FLEDGLING_KEYS:-$REAL_HOME/.fledgling}
+PRIV=$KEYS/licence-private.pem
+PUB=$KEYS/licence-public.hex
+LOG=$KEYS/cards.csv
+MASTER_DEFAULT=$KEYS/fledgling-master.img
+
+die() { echo "make-card: $*" >&2; exit 1; }
+need_root() { [ "$(id -u)" = 0 ] || die "run with sudo: sudo $0 $*"; }
+need_key() { [ -r "$PRIV" ] || die "no seller key at $PRIV (run: $0 init)"; }
+
+# sign KIND ID -> prints "KIND ID SIGNATURE"
+sign() {
+  local kind=$1 id msg sig
+  id=$(echo "$2" | tr 'A-F' 'a-f' | tr -cd '0-9a-f')
+  [ "$kind" = serial ] && id=$(echo "$id" | sed 's/^0*//; s/^$/0/')
+  [ -n "$id" ] || die "empty $kind"
+  msg=$(mktemp); printf 'fledgling-live/1 %s %s' "$kind" "$id" > "$msg"
+  sig=$(openssl pkeyutl -sign -inkey "$PRIV" -rawin -in "$msg" | od -An -tx1 -v | tr -d ' \n')
+  rm -f "$msg"
+  [ ${#sig} -eq 128 ] || die "signing failed"
+  echo "$kind $id $sig"
+}
+
+card_cid() {
+  local name; name=$(basename "$1")
+  local f=/sys/block/$name/device/cid
+  [ -r "$f" ] || die "can't read the serial of $1. Use the computer's built-in SD slot (/dev/mmcblkN); USB card readers hide it."
+  tr -d ' \n' < "$f"
+}
+
+check_target() {
+  local dev=$1
+  [ -b "$dev" ] || die "$dev is not a disk"
+  case "$dev" in /dev/mmcblk[0-9]) ;; *) die "expected the SD slot, e.g. /dev/mmcblk0 (got $dev)";; esac
+  local rootdev; rootdev=$(findmnt -no SOURCE / | sed 's/p\?[0-9]*$//')
+  [ "$rootdev" != "$dev" ] || die "$dev is the card this computer is running from"
+}
+
+part1() { echo "${1}p1"; }
+
+# Shrink the root partition to its contents plus a little room, so the image fits an 8 GB card.
+# Raspberry Pi OS grows it back to fill the whole card on first boot ("resize" in cmdline.txt).
+shrink_image() {
+  local img=$1 loop bs used want start sectors end room=${ROOM_MB:-512}
+  loop=$(losetup -fP --show "$img")
+  e2fsck -pf "${loop}p2" >/dev/null || [ $? -le 1 ] || { losetup -d "$loop"; die "root filesystem check failed"; }
+  bs=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block size/{print $2+0}')
+  used=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block count/{c=$2} /^Free blocks/{f=$2} END{print c-f}')
+  want=$(( used + room * 1048576 / bs ))
+  # resize2fs -P overestimates a lot on Pi OS (6.3 GB for 4.6 GB of files), so ask for the real
+  # size with -f; resize2fs still refuses if the files can't fit, and e2fsck checks the result.
+  resize2fs -f "${loop}p2" "$want" >/dev/null 2>&1 || resize2fs -M "${loop}p2" >/dev/null 2>&1 ||
+    { losetup -d "$loop"; die "could not shrink the root filesystem"; }
+  e2fsck -fn "${loop}p2" >/dev/null 2>&1 || { losetup -d "$loop"; die "root filesystem damaged while shrinking"; }
+  want=$(dumpe2fs -h "${loop}p2" 2>/dev/null | awk -F: '/^Block count/{print $2+0}')
+  sectors=$(( ( want * bs / 512 + 2047 ) / 2048 * 2048 ))   # whole MiB
+  losetup -d "$loop"
+  start=$(partx -g -o START -n 2 "$img" | tr -d ' ')
+  [ -n "$start" ] || die "can't read the partition table of $img"
+  echo "$start,$sectors" | sfdisk -q -N 2 --no-reread --no-tell-kernel "$img"
+  end=$(( (start + sectors) * 512 ))
+  truncate -s "$end" "$img"
+  echo "root partition shrunk: image is now $(( end / 1048576 )) MiB (Pi OS expands it to the whole card on first boot)"
+}
+
+write_licence() {
+  local dev=$1 cid line mnt
+  cid=$(card_cid "$dev")
+  line=$(sign cid "$cid")
+  mnt=$(mktemp -d)
+  mount "$(part1 "$dev")" "$mnt" || die "can't mount the boot partition of $dev (is it flashed?)"
+  { echo "# Fledgling Live licence. Works only on this SD card. Please don't delete this file."
+    echo "$line"; } > "$mnt/fledgling.lic"
+  sync; umount "$mnt"; rmdir "$mnt"
+  [ -f "$LOG" ] || echo "date,cid,note" > "$LOG"
+  echo "$(date -Iseconds),$cid,${NOTE:-}" >> "$LOG"; chown "$REAL_USER" "$LOG" 2>/dev/null || true
+  echo "licensed card $cid"
+}
+
+cmd=${1:-help}; shift || true
+case "$cmd" in
+init)
+  [ -e "$PRIV" ] && die "a key already exists at $PRIV. Replacing it would make every card you sold stop working on updates."
+  mkdir -p "$KEYS"; chmod 700 "$KEYS"
+  openssl genpkey -algorithm ed25519 -out "$PRIV"; chmod 600 "$PRIV"
+  openssl pkey -in "$PRIV" -pubout -outform DER | tail -c 32 | od -An -tx1 -v | tr -d ' \n' > "$PUB"; echo >> "$PUB"
+  [ -n "${SUDO_USER:-}" ] && chown -R "$REAL_USER" "$KEYS"
+  echo "Seller key created in $KEYS"
+  echo "  public key: $(cat "$PUB")"
+  echo "BACK UP $PRIV somewhere safe and private (password manager or USB stick in a drawer)."
+  echo "Never put it in the repo or on a card. Now build the app: sh box/desktop/build-deb.sh"
+  ;;
+sign)    # sign KIND ID: print one licence line (kind = cid or serial)
+  need_key; [ $# -eq 2 ] || die "usage: $0 sign cid|serial ID"; sign "$1" "$2"
+  ;;
+pi)
+  need_key; [ $# -eq 1 ] || die "usage: $0 pi SERIAL   (on the Pi: cat /sys/firmware/devicetree/base/serial-number)"
+  sign serial "$1"
+  echo "(add this line to fledgling.lic on that Pi's card)" >&2
+  ;;
+image)
+  # sudo make-card image STOCK.img.xz SOURCE [OUT.img]
+  #   SOURCE = a fledgling-live .deb, or the box/ folder: then the app is compiled inside the image
+  #   itself, so it matches that Raspberry Pi OS exactly (this is what the GitHub workflow does).
+  need_root image
+  [ $# -ge 2 ] || die "usage: sudo $0 image RASPIOS.img.xz (fledgling-live_X_arm64.deb | box/) [OUT.img]"
+  stock=$1 src=$(readlink -f "$2") out=${3:-$MASTER_DEFAULT}
+  [ "$(uname -m)" = aarch64 ] || die "build the image on 64-bit ARM (a Raspberry Pi, or an arm64 GitHub runner)"
+  if [ -r "$PUB" ]; then key=$(tr -cd '0-9a-f' < "$PUB")
+  elif [ "${DEMO:-0}" = 1 ]; then key=; echo "DEMO=1: building a demo-only image (no card can unlock it)" >&2
+  else die "no seller public key at $PUB (run: $0 init, or DEMO=1 for a demo-only image)"; fi
+  if [ -f "$src" ] && [ -n "$key" ]; then   # a prebuilt app must carry this seller's key
+    tmp=$(mktemp -d); dpkg-deb -x "$src" "$tmp"
+    od -An -tx1 -v "$tmp/usr/bin/fledgling-box" | tr -d ' \n' | grep -q "$key" ||
+      { rm -rf "$tmp"; die "$src was built without your key. Rebuild it (sh box/desktop/build-deb.sh) after init."; }
+    rm -rf "$tmp"
+  fi
+  echo "unpacking $stock ..."
+  case "$stock" in *.xz) xz -dc "$stock" > "$out";; *) cp "$stock" "$out";; esac
+  truncate -s +1024M "$out"                      # working room for apt; shrunk again at the end
+  parted -s "$out" resizepart 2 100%
+  loop=$(losetup -fP --show "$out"); mnt=$(mktemp -d)
+  cleanup() {
+    for m in dev/pts dev proc sys boot/firmware ""; do umount "$mnt/$m" 2>/dev/null || true; done
+    losetup -d "$loop" 2>/dev/null || true; rmdir "$mnt" 2>/dev/null || true
+  }
+  trap cleanup EXIT
+  e2fsck -pf "${loop}p2" >/dev/null || true; resize2fs "${loop}p2" >/dev/null
+  mount "${loop}p2" "$mnt"; mount "${loop}p1" "$mnt/boot/firmware"
+  for m in proc sys dev dev/pts; do mount --bind "/$m" "$mnt/$m"; done
+  cp -a "$mnt/etc/resolv.conf" "$mnt/tmp/resolv.conf.orig" 2>/dev/null || true
+  cp --remove-destination -L /etc/resolv.conf "$mnt/etc/resolv.conf"
+  if [ -d "$src" ]; then
+    cp -r "$src" "$mnt/tmp/box"; rm -f "$mnt"/tmp/box/fledgling-live_*.deb
+    printf '%s\n' "$key" > "$mnt/tmp/box/seller.hex"
+    # cortex-a72 = Pi 4 / Pi 400 / CM4; the Pi 5 (cortex-a76) runs it too
+    chroot "$mnt" /bin/sh -ec 'export DEBIAN_FRONTEND=noninteractive; apt-get update -q
+      apt-get install -y -q build-essential libasound2-dev libsodium-dev
+      cd /tmp/box && make clean >/dev/null && MCPU=cortex-a72 KEY=/tmp/box/seller.hex sh desktop/build-deb.sh
+      apt-get install -y -q /tmp/box/fledgling-live_*.deb && apt-get clean'
+    cp "$mnt"/tmp/box/fledgling-live_*.deb "$(dirname "$out")/"
+    rm -rf "$mnt/tmp/box"
+  else
+    cp "$src" "$mnt/tmp/fledgling-live.deb"
+    chroot "$mnt" /bin/sh -ec 'apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q /tmp/fledgling-live.deb && apt-get clean'
+    rm -f "$mnt/tmp/fledgling-live.deb"
+  fi
+  if [ -e "$mnt/tmp/resolv.conf.orig" ] || [ -L "$mnt/tmp/resolv.conf.orig" ]; then mv -f "$mnt/tmp/resolv.conf.orig" "$mnt/etc/resolv.conf"; fi
+  # Leave nothing from the build behind: package lists (~150 MB, apt fetches them again), caches, logs.
+  rm -rf "$mnt"/var/lib/apt/lists/* "$mnt"/var/cache/apt/*.bin "$mnt"/var/cache/apt/archives/*.deb "$mnt"/tmp/* "$mnt"/var/tmp/*
+  find "$mnt/var/log" -type f -exec truncate -s 0 {} +
+  fstrim "$mnt" 2>/dev/null || true             # free blocks become holes: smaller download, faster flashing
+  cleanup; trap - EXIT
+  shrink_image "$out"
+  chown "$REAL_USER" "$out" 2>/dev/null || true
+  echo "master image ready: $out ($(du -h "$out" | cut -f1))"
+  ;;
+flash)
+  need_root flash; need_key
+  [ $# -ge 1 ] || die "usage: sudo $0 flash /dev/mmcblk0 [IMAGE]"
+  dev=$1 img=${2:-$MASTER_DEFAULT}
+  [ -r "$img" ] || die "no image at $img (make one with: sudo $0 image ...)"
+  check_target "$dev"
+  cid=$(card_cid "$dev")
+  echo "card $cid in $dev: writing $(basename "$img") ..."
+  for p in "$dev"p*; do umount "$p" 2>/dev/null || true; done
+  case "$img" in *.xz) xz -dc "$img";; *) cat "$img";; esac | dd of="$dev" bs=4M conv=fsync status=progress
+  blockdev --rereadpt "$dev"; udevadm settle; sleep 1
+  write_licence "$dev"
+  echo "done. Card $cid is ready to sell."
+  ;;
+licence|license)
+  need_root licence; need_key
+  [ $# -eq 1 ] || die "usage: sudo $0 licence /dev/mmcblk0"
+  check_target "$1"; write_licence "$1"
+  ;;
+*)
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  ;;
+esac

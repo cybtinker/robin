@@ -155,5 +155,8 @@ make
 | `tools/wavfx.c` | Offline test: run the live effect on a WAV file |
 | `setup/fledgling-desktop.sh` | Desktop mode: makes the "Fledgling Voice" virtual mic (PipeWire) and runs the engine into it |
 | `desktop/` | The Fledgling Live app: launcher, menu entry, `.deb` builder, one-command install, test guide |
+| `engine/licence.c` | Licence check: the app works fully only on the SD card (or Pi) it was sold with |
+| `licence/make-card` | Seller tool: key, master image, flash + licence each card. Guide: [licence/README.md](licence/README.md) |
 
-WORLD is not used here; nothing in the box needs a GPL or LGPL library.
+WORLD is not used here; nothing in the box needs a GPL or LGPL library. The licence check uses
+libsodium (ISC licence, linked statically).

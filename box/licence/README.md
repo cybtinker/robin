@@ -1,0 +1,85 @@
+# Selling Fledgling Live on SD cards
+
+Each card you sell only works as that card. Every SD card has a factory serial number (its CID)
+built into the chip, and copying the card's contents does not copy that number. When you make a
+card, `make-card` writes a licence file for that one serial, signed with your private seller key.
+Fledgling Live checks the file when it starts:
+
+| Situation | What the buyer gets |
+| --- | --- |
+| Original card | Full voice makeup, no time limit, works offline |
+| Copy on another card, or no licence | 10-minute demo each time the app starts, then their plain voice |
+| Edited licence file | Demo (the signature no longer matches) |
+
+Nothing on a buyer's device is unbreakable. Someone skilled could patch the program. This is meant
+to make copying more trouble than buying a card. A copied card even works as an advert, because it
+runs the demo.
+
+## What you need
+
+- A Raspberry Pi with 64-bit Raspberry Pi OS whose **built-in SD slot is free**. Your Pi 500+ boots
+  from its SSD, so its SD slot works. USB card readers hide the card serial and can't be used.
+- The stock Raspberry Pi OS image (64-bit, with desktop) from raspberrypi.com/software/operating-systems.
+- `sudo apt install build-essential libasound2-dev libsodium-dev parted`
+
+## Once: your seller key
+
+```sh
+box/licence/make-card init
+```
+
+This creates `~/.fledgling/licence-private.pem`. **Back it up somewhere private**, for example a
+password manager or a USB stick in a drawer. Without it you can't make cards that the released app
+accepts. Never put it in the repo, on a card, or in an email.
+
+## Once per release: the master image
+
+The easiest way is GitHub: the **Pi card image** workflow downloads the latest Raspberry Pi OS
+(64-bit, desktop), compiles Fledgling Live inside it with your public key, and publishes
+`fledgling-master.img.xz` as a release on the repo. Put your public key (printed by `init`, also
+in `~/.fledgling/licence-public.hex`) into the repository variable `FLEDGLING_PUBLIC_KEY`
+(Settings > Secrets and variables > Actions > Variables). It's safe to share: it can only check
+licences, not make them. Then run the workflow from the Actions tab and download the image.
+
+Or build it on your Pi (64-bit Raspberry Pi OS):
+
+```sh
+sudo box/licence/make-card image ~/Downloads/2025-xx-xx-raspios-arm64.img.xz box/
+```
+
+The result is stock Raspberry Pi OS with Fledgling Live installed. On first boot the buyer still
+gets the normal Raspberry Pi setup (country, Wi-Fi, their own user name and password), and then it's
+an ordinary Pi to use however they like. Publishing the image is harmless: without a card licence
+it only runs the demo.
+
+The image is about 6 GB (Raspberry Pi OS with desktop takes 4.6 GB of it), so it fits an 8 GB card.
+`make-card image` shrinks the system partition to its contents plus 512 MB; Raspberry Pi OS grows
+it to fill the whole card on first boot, so bigger cards get all their space too.
+
+## Per card (about 5 minutes)
+
+```sh
+sudo NOTE="etsy order 1234" box/licence/make-card flash /dev/mmcblk0 fledgling-master.img.xz
+```
+
+This writes the image, then the licence for that card's serial, and adds a line to
+`~/.fledgling/cards.csv` (date, card serial, your note), so you have a record of every card sold.
+To re-licence a card that's already flashed, for example after a buyer reflashed it with your
+image, run `sudo box/licence/make-card licence /dev/mmcblk0`.
+
+## Pi + card bundles
+
+Optionally, a licence can also be tied to the Pi itself. That way the buyer can move to another
+card and keep the voice makeup.
+
+```sh
+cat /sys/firmware/devicetree/base/serial-number               # on the Pi you're selling
+box/licence/make-card pi 10000000abcdef01 >> fledgling.lic     # add the line to that card's licence
+```
+
+## Buyer support
+
+- "It says Demo": the card isn't an original, or `fledgling.lic` was deleted from the card's boot
+  partition. Re-licence the card (see above).
+- To see what a Pi reports, run `fledgling-box --check-licence`. It prints the licence result and
+  that machine's card and Pi serials.
