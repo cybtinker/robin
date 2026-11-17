@@ -52,6 +52,10 @@ gets the normal Raspberry Pi setup (country, Wi-Fi, their own user name and pass
 an ordinary Pi to use however they like. Publishing the image is harmless: without a card licence
 it only runs the demo.
 
+The image is about 6 GB (Raspberry Pi OS with desktop takes 4.6 GB of it), so it fits an 8 GB card.
+`make-card image` shrinks the system partition to its contents plus 512 MB; Raspberry Pi OS grows
+it to fill the whole card on first boot, so bigger cards get all their space too.
+
 ## Per card (about 5 minutes)
 
 ```sh

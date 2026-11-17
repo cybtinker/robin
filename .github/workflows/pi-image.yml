@@ -11,7 +11,7 @@ name: Pi card image
 on:
   workflow_dispatch:
   push:
-    branches: [claude/project-thread-y1uyek]
+    branches: [claude/project-thread-y1uyek, claude/project-thread-t9r8gy]
     paths: [box/**, .github/workflows/pi-image.yml]
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Tools
-        run: sudo apt-get update -q && sudo apt-get install -y -q parted xz-utils e2fsprogs
+        run: sudo apt-get update -q && sudo apt-get install -y -q parted fdisk xz-utils e2fsprogs
 
       - name: Seller public key
         env:
@@ -57,7 +57,8 @@ jobs:
 
       - name: Compress
         run: |
-          xz -T0 -6 out/fledgling-master.img
+          # -c: write through a pipe, so xz never tries to copy the (root) owner or group
+          xz -T0 -6 -c out/fledgling-master.img > out/fledgling-master.img.xz && rm out/fledgling-master.img
           cd out && sha256sum fledgling-master.img.xz fledgling-live_*.deb > SHA256SUMS && ls -la
 
       - name: Publish release
