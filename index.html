@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">
+<script>
+/* Draw under the notch and home bar only on iPhone/iPad. On Android, viewport-fit=cover lets Chrome draw the page
+   under its own bottom toolbar, which hid the Listen bar (play buttons) in v10.8. */
+if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+  document.querySelector('meta[name=viewport]').content = 'width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content';
+</script>
 <title>Fledgling</title>
 <meta name="description" content="Voice makeup for singing and speaking: sound a little younger, steadier and clearer. Runs entirely on your phone.">
 <link rel="manifest" href="manifest.webmanifest">
