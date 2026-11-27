@@ -187,14 +187,14 @@ input[type=range] { width: 100%; margin: 0; accent-color: var(--young); height: 
 
 /* listen bar: in the page flow under the makeup card. Pinned to the screen bottom it hid under some
    Android browsers' bottom toolbars (v10.8-10.9). */
-.listen { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 48px; gap: 8px; }
-.listen button { min-height: 48px; border-radius: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; min-width: 0; }
-.listen button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playbar { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 48px; gap: 8px; }
+.playbar button { min-height: 48px; border-radius: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; min-width: 0; }
+.playbar button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #playOrig { border: 1px solid var(--line); background: var(--bg); font-size: 14px; }
 #playFx { border: 0; background: var(--young); color: var(--panel); font-size: 15px; font-weight: 650; }
 #shareBtn { width: 48px; padding: 0; border: 1px solid var(--young); background: var(--panel); color: var(--young); }
-.listen button:disabled { opacity: .45; cursor: default; }
-.listen .pause { display: none; } .listen .playing .pause { display: block; } .listen .playing .play { display: none; }
+.playbar button:disabled { opacity: .45; cursor: default; }
+.playbar .pause { display: none; } .playbar .playing .pause { display: block; } .playbar .playing .play { display: none; }
 
 /* pop-ups, toast, dialogs */
 .pop { position: fixed; z-index: 20; max-width: min(320px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line);
@@ -292,13 +292,13 @@ button:focus-visible, input:focus-visible, summary:focus-visible, select:focus-v
     <div class="metrics" id="looks"></div>
   </section>
 
-  <nav class="listen" data-i18n-aria="listenH" aria-label="Listen">
+  <div class="playbar" role="group" data-i18n-aria="listenH" aria-label="Listen">
     <button type="button" id="playOrig" disabled><svg class="play" width="14" height="14" viewBox="0 0 24 24" fill="var(--old)" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg><svg class="pause" width="14" height="14" viewBox="0 0 24 24" fill="var(--old)" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg><span data-i18n="playOrig">Original</span></button>
     <button type="button" id="playFx" disabled><svg class="play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg><svg class="pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg><span id="fxLabel"></span></button>
     <button type="button" id="shareBtn" disabled data-i18n-aria="share" aria-label="Save or share"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v7h14v-7"/></svg></button>
     <audio id="origAudio" preload="auto" hidden></audio>
     <audio id="fxAudio" preload="auto" hidden></audio>
-  </nav>
+  </div>
 
   <section class="card help" aria-labelledby="helpT">
     <div class="help-head">
