@@ -1,6 +1,6 @@
 /* Fledgling: UI, recording, playback. Heavy work runs in worker.js. */
 'use strict';
-const VERSION = 'poc-10.9';
+const VERSION = 'poc-10.10';
 const MAX_S = 90;        // longest take
 const OLD_MAX_S = 150;   // an old recording: first 2.5 minutes are enough
 const $ = (id) => document.getElementById(id);
@@ -689,11 +689,3 @@ refreshLang();
 applyTheme();
 window.__yv = { state, call, loadTake, report, typical }; // for automated tests
 
-// Keep the Listen bar (play buttons) on screen: if the browser reports a page taller than what is visible,
-// shrink the app to the visible height.
-function fitApp() {
-  const vv = window.visualViewport; if (!vv || vv.scale > 1.01) return;
-  const app = document.querySelector('.app'); app.style.height = '';
-  if (document.querySelector('.listen').getBoundingClientRect().bottom > vv.height + 1) app.style.height = `${Math.round(vv.height)}px`;
-}
-window.visualViewport?.addEventListener('resize', fitApp); addEventListener('orientationchange', fitApp); fitApp();
